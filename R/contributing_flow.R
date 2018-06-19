@@ -14,6 +14,7 @@
 # libraries ---------------------------------------------------------------
 library(tidyverse)
 library(sqldf)
+library(lubridate)
 
 
 # functions ---------------------------------------------------------------
@@ -286,10 +287,150 @@ contributingFlow <- bind_rows(mergedSubCurryData)
 
 # plotting ----------------------------------------------------------------
 
-# plot data
+# percent of total for storms with good coverage
 
 contributingFlow %>% 
   filter(stormMark %in% c(9, 10, 11, 14, 15, 16, 17, 29, 32, 33, 34, 37, 39, 42, 22, 67, 74)) %>% 
-  mutate(percentOfFlow = log1p(percentOfFlow)) %>% 
-  ggplot(aes(x = stormMark, y = subcatchment)) +
-  geom_raster(aes(fill = percentOfFlow))
+  mutate(
+    percentOfFlow = log1p(percentOfFlow),
+    subcatchment = replace(subcatchment, grepl("4643", subcatchment), "sweetwater"),
+    subcatchment = replace(subcatchment, grepl("4693", subcatchment), "shea"),
+    subcatchment = replace(subcatchment, grepl("4688", subcatchment), "berneil"),
+    subcatchment = replace(subcatchment, grepl("4678", subcatchment), "lake marguerite"),
+    subcatchment = replace(subcatchment, grepl("4613", subcatchment), "silverado"),
+    subcatchment = replace(subcatchment, grepl("4623", subcatchment), "interceptor"),
+    subcatchment = replace(subcatchment, grepl("4628", subcatchment), "mcdonald"),
+    subcatchment = replace(subcatchment, grepl("4618", subcatchment), "indian school"),
+    subcatchment = replace(subcatchment, grepl("4728", subcatchment), "granite reef"),
+    subcatchment = replace(subcatchment, grepl("4603", subcatchment), "mckellips")
+  ) %>% 
+  ggplot(aes(x = stormMark, y = subcatchment, fill = percentOfFlow)) +
+  geom_raster() +
+  scale_fill_gradient(name="log(% flow @ Curry)") +
+  ggtitle("flow within IBW subcatchments as a percent \nof total flow at Curry for a given storm",
+          subtitle = "includes only 17 storms with sufficient analytic coverage")
+ggsave('~/Desktop/percent_of_flow_good_storms.png')
+
+# percent of total for all storms
+
+contributingFlow %>% 
+  mutate(
+    percentOfFlow = log1p(percentOfFlow),
+    subcatchment = replace(subcatchment, grepl("4643", subcatchment), "sweetwater"),
+    subcatchment = replace(subcatchment, grepl("4693", subcatchment), "shea"),
+    subcatchment = replace(subcatchment, grepl("4688", subcatchment), "berneil"),
+    subcatchment = replace(subcatchment, grepl("4678", subcatchment), "lake marguerite"),
+    subcatchment = replace(subcatchment, grepl("4613", subcatchment), "silverado"),
+    subcatchment = replace(subcatchment, grepl("4623", subcatchment), "interceptor"),
+    subcatchment = replace(subcatchment, grepl("4628", subcatchment), "mcdonald"),
+    subcatchment = replace(subcatchment, grepl("4618", subcatchment), "indian school"),
+    subcatchment = replace(subcatchment, grepl("4728", subcatchment), "granite reef"),
+    subcatchment = replace(subcatchment, grepl("4603", subcatchment), "mckellips")
+  ) %>% 
+  ggplot(aes(x = stormMark, y = subcatchment, fill = percentOfFlow)) +
+  geom_raster() +
+  scale_fill_gradient(name="log(% flow @ Curry)") +
+  ggtitle("flow within IBW subcatchments as a percent \nof total flow at Curry for a given storm",
+          subtitle = "includes all storms")
+ggsave('~/Desktop/percent_of_flow_all_storms.png')
+
+
+
+# plot discharge throughout catchment -------------------------------------
+
+# function and workflow to generate plots of discharge at all sites throughout
+# the IBW catchment based on IBW storm marks. Function requires output from
+# above workflow, including: contributingStorms and adjustedDuration. In
+# addition, interpolated IBW discharge is required, here: ibw_q_allyears.
+
+
+demarcated_subcatchments <- bind_rows(adjustedDuration) %>% 
+  mutate(
+    Qls = as.numeric(cfs) * 28.316847 # cfs to L/sec
+  ) %>% 
+  select(
+    site, subStormMark = stormMark, dateTimeMod, Qls
+    ) %>% 
+  ungroup()
+
+ibw_q_allyears <- read_csv('https://www.dropbox.com/s/8owmzbjuexgdok5/ibw_q_allyears.csv?dl=1') %>% 
+  ungroup()
+
+
+# plotting function
+curry_subcatchments_discharge <- function(stormNumber) {
+  
+  contributingStorms <- tibble(
+    site = as.character(NA),
+    subStormMark = as.integer(NA),
+    dateTimeMod = as.POSIXct(NA, format = "%Y-%m-%d %H:%M:%S"),
+    Qls = as.numeric(NA)
+  )
+  
+  for (i in 1:nrow(contributingFlow %>% filter(stormMark == stormNumber))) {
+    
+    siteid <- contributingFlow[contributingFlow$stormMark == stormNumber,]$subcatchment[[i]]
+    subStorms <- contributingFlow[contributingFlow$stormMark == stormNumber,]$subcatchmentStorms[[i]]
+    
+    contributingStorms <- bind_rows(
+      contributingStorms,
+      demarcated_subcatchments[demarcated_subcatchments$site == siteid & demarcated_subcatchments$subStormMark == subStorms,]
+    )
+    
+  }
+  
+  allSites <- bind_rows(
+    contributingStorms %>%
+      filter(!is.na(site)) %>% 
+      mutate(
+        stormMark = as.integer(stormNumber),
+        site = replace(site, grepl("4643", site), "sweetwater"),
+        site = replace(site, grepl("4693", site), "shea"),
+        site = replace(site, grepl("4688", site), "berneil"),
+        site = replace(site, grepl("4678", site), "lake marguerite"),
+        site = replace(site, grepl("4613", site), "silverado"),
+        site = replace(site, grepl("4623", site), "interceptor"),
+        site = replace(site, grepl("4628", site), "mcdonald"),
+        site = replace(site, grepl("4618", site), "indian school"),
+        site = replace(site, grepl("4728", site), "granite reef"),
+        site = replace(site, grepl("4603", site), "mckellips")
+      ) %>% 
+      select(
+        site,
+        stormMark,
+        subStormMark,
+        dateTime = dateTimeMod,
+        Qls
+      ),
+    ibw_q_allyears %>% 
+      filter(stormMark == stormNumber) %>% 
+      mutate(
+        site = 'ibw',
+        stormMark = as.integer(stormMark),
+        subStormMark = as.integer(NA)
+      ) %>% 
+      select(
+        site,
+        stormMark,
+        subStormMark,
+        dateTime,
+        Qls
+      )
+  )
+  
+  allSites %>% 
+    ggplot(aes(x = dateTime, y = Qls, group = site, color = site)) +
+    geom_point() +
+    geom_line() +
+    ggtitle(paste0("ibw and subcatchments, storm:", stormNumber),
+            subtitle = year(allSites[1,]$dateTime)) +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+  ggsave(filename = paste0("flow_ibw_catchments_", stormNumber, ".png"),
+         device = "png")
+  
+}
+
+
+# generate plots for all storms
+lapply(unique(contributingFlow[['stormMark']]), curry_subcatchments_discharge)
