@@ -24,8 +24,12 @@ library(zoo)
 
 # import data from Dropbox; remove analytes with a very small number of samples
 
-ibwQchem <- read_csv('https://www.dropbox.com/s/4xv8q1pt6jpvkje/ibwQchem.csv?dl=1') %>% 
-  mutate(concentration = as.numeric(concentration)) %>% 
+# use read.csv to avoid tidyverse conversion to UTC
+ibwQchem <- read.csv('https://www.dropbox.com/s/7hmdmd9puxu2qqi/ibwQchem.csv?dl=1', stringsAsFactors = FALSE) %>% 
+  mutate(
+    dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"),
+    concentration = as.numeric(concentration)
+  ) %>% 
   filter(!analyte %in% c('SO4D_IC', 'NiD_ICP', 'PbD_ICP', 'CaD_FLAME_AA', 'NO3D_IC'))
 
 
@@ -77,4 +81,4 @@ plot_hysteresis <- function(storm) {
 
 # generate plots for relevant storms --------------------------------------
 
-lapply(storms_with_chem$stormMark, plot_hysteresis)
+lapply(storms_with_chem, plot_hysteresis)

@@ -14,6 +14,7 @@
 # libraries ---------------------------------------------------------------
 library(tidyverse)
 library(sqldf)
+options(sqldf.driver = "SQLite") # set sqldf to use SQLite driver
 library(lubridate)
 
 
@@ -218,12 +219,15 @@ flowData <- lapply(adjustedDuration, cumulative_discharge)
 
 # ibw hydro (from ibwQchem) -----------------------------------------------
 
-# Need to relate IBW storm marks with subcatchment data. Here using hydro data
-# in ibwQchem but any of the IBW data would work so long as the stormMarks are
+# Need to relate IBW storm marks with subcatchment data. Here using ibwQminute
+# but any of the IBW data would work so long as the stormMarks are
 # accuracte/consistent.
 
-ibwQchem <- read_csv('https://www.dropbox.com/s/4xv8q1pt6jpvkje/ibwQchem.csv?dl=1') # ibwQchem.csv
-ibwHydro <- ibwQchem %>% 
+# use read.csv to avoid tidyverse conversion to UTC
+ibwQminute <- read.csv('https://www.dropbox.com/s/sompxe82jrx1e4k/ibwQminute.csv?dl=1', stringsAsFactors = FALSE) %>% 
+  mutate(dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"))
+
+ibwHydro <- ibwQminute %>% 
   select(stormMark, dateTime, cumQ) %>% 
   group_by(stormMark) %>% 
   summarise(
@@ -287,30 +291,6 @@ contributingFlow <- bind_rows(mergedSubCurryData)
 
 # plotting ----------------------------------------------------------------
 
-# percent of total for storms with good coverage
-
-contributingFlow %>% 
-  filter(stormMark %in% c(9, 10, 11, 14, 15, 16, 17, 29, 32, 33, 34, 37, 39, 42, 22, 67, 74)) %>% 
-  mutate(
-    percentOfFlow = log1p(percentOfFlow),
-    subcatchment = replace(subcatchment, grepl("4643", subcatchment), "sweetwater"),
-    subcatchment = replace(subcatchment, grepl("4693", subcatchment), "shea"),
-    subcatchment = replace(subcatchment, grepl("4688", subcatchment), "berneil"),
-    subcatchment = replace(subcatchment, grepl("4678", subcatchment), "lake marguerite"),
-    subcatchment = replace(subcatchment, grepl("4613", subcatchment), "silverado"),
-    subcatchment = replace(subcatchment, grepl("4623", subcatchment), "interceptor"),
-    subcatchment = replace(subcatchment, grepl("4628", subcatchment), "mcdonald"),
-    subcatchment = replace(subcatchment, grepl("4618", subcatchment), "indian school"),
-    subcatchment = replace(subcatchment, grepl("4728", subcatchment), "granite reef"),
-    subcatchment = replace(subcatchment, grepl("4603", subcatchment), "mckellips")
-  ) %>% 
-  ggplot(aes(x = stormMark, y = subcatchment, fill = percentOfFlow)) +
-  geom_raster() +
-  scale_fill_gradient(name="log(% flow @ Curry)") +
-  ggtitle("flow within IBW subcatchments as a percent \nof total flow at Curry for a given storm",
-          subtitle = "includes only 17 storms with sufficient analytic coverage")
-ggsave('~/Desktop/percent_of_flow_good_storms.png')
-
 # percent of total for all storms
 
 contributingFlow %>% 
@@ -335,14 +315,12 @@ contributingFlow %>%
 ggsave('~/Desktop/percent_of_flow_all_storms.png')
 
 
-
 # plot discharge throughout catchment -------------------------------------
 
 # function and workflow to generate plots of discharge at all sites throughout
 # the IBW catchment based on IBW storm marks. Function requires output from
 # above workflow, including: contributingStorms and adjustedDuration. In
-# addition, interpolated IBW discharge is required, here: ibw_q_allyears.
-
+# addition, interpolated IBW discharge is required, here: ibwQminute.
 
 demarcated_subcatchments <- bind_rows(adjustedDuration) %>% 
   mutate(
@@ -353,9 +331,16 @@ demarcated_subcatchments <- bind_rows(adjustedDuration) %>%
     ) %>% 
   ungroup()
 
-ibw_q_allyears <- read_csv('https://www.dropbox.com/s/8owmzbjuexgdok5/ibw_q_allyears.csv?dl=1') %>% 
-  ungroup()
+# use read.csv to avoid tidyverse conversion to UTC
+ibwQminute <- read.csv('https://www.dropbox.com/s/sompxe82jrx1e4k/ibwQminute.csv?dl=1', stringsAsFactors = FALSE) %>% 
+  mutate(dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"))
 
+# joining on date so be sure time zones match - looking for ""
+attr(ibwQminute$dateTime, "tzone")
+attr(demarcated_subcatchments$dateTimeMod, "tzone")
+
+# attr(ibwQminute$dateTime, "tzone") <- "America/Phoenix"
+# attr(demarcated_subcatchments$dateTimeMod, "tzone") <- "America/Phoenix"
 
 # plotting function
 curry_subcatchments_discharge <- function(stormNumber) {
@@ -402,7 +387,7 @@ curry_subcatchments_discharge <- function(stormNumber) {
         dateTime = dateTimeMod,
         Qls
       ),
-    ibw_q_allyears %>% 
+    ibwQminute %>% 
       filter(stormMark == stormNumber) %>% 
       mutate(
         site = 'ibw',
