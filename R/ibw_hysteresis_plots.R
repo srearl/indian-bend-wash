@@ -22,14 +22,16 @@ library(zoo)
 
 # data import -------------------------------------------------------------
 
-# import data from Dropbox; remove analytes with a very small number of samples
+# import data from Dropbox, and remove analytes with a very small number of
+# samples
 
-# use read.csv to avoid tidyverse conversion to UTC
-ibwQchem <- read.csv('https://www.dropbox.com/s/7hmdmd9puxu2qqi/ibwQchem.csv?dl=1', stringsAsFactors = FALSE) %>% 
-  mutate(
-    dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"),
-    concentration = as.numeric(concentration)
-  ) %>% 
+# note specifying the time zone on import, which is critical to maintaining the
+# integrity of these data as readr will otherwise convert dates/times to UTC
+# without warning nor shifting the corresponding data accordingly
+
+ibwQchem <- read_csv('https://www.dropbox.com/s/wsseakmze4hsnws/ibwQchem.csv?dl=1',
+                     locale = locale(tz = "America/Phoenix")) %>%  # note !!!
+  mutate(concentration = as.numeric(concentration)) %>% 
   filter(!analyte %in% c('SO4D_IC', 'NiD_ICP', 'PbD_ICP', 'CaD_FLAME_AA', 'NO3D_IC'))
 
 

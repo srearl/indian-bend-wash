@@ -35,7 +35,7 @@ ibwQ <- readNWISuv('09512162', '00060', startDate = "2008-01-01", endDate = Sys.
     cfs = X_00060_00000,
     QCflag = X_00060_00000_cd
   ) %>% 
-  filter(QCflag != "P") %>% # filter provisisional data
+  filter(QCflag != "P") # filter provisisional data
 
 
 # storm delineation -------------------------------------------------------
