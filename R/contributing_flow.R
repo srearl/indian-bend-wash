@@ -14,12 +14,13 @@
 # libraries ---------------------------------------------------------------
 library(tidyverse)
 library(sqldf)
-options(sqldf.driver = "SQLite") # set sqldf to use SQLite driver
 library(lubridate)
 
 
-# functions ---------------------------------------------------------------
-source()
+# options -----------------------------------------------------------------
+
+options(scipen = 999)
+options(sqldf.driver = "SQLite") # set sqldf to use SQLite driver
 
 
 # data ingestion ----------------------------------------------------------
@@ -244,6 +245,15 @@ ibwHydro <- ibwQminute %>%
 # range of IBW storms. Percent of flow at subcatchments relative to total flow
 # at IBW for that storm (at IBW!) is calculated.
 
+# update 2018-07-20: the SQL match used initially that identified MCFCD storms
+# where the start or end of the storm were within the duration of an IBW storm
+# (commented below) was found to be too restrictive. The SQL statement was
+# updated to pair MCFCD and IBW storms if there was only overlap between the
+# two.
+
+# ibwHydro ih ON (tf.stormStart BETWEEN ih.ibwBegin and ih.ibwEnd OR tf.stormEnd
+# BETWEEN ih.ibwBegin and ih.ibwEnd);
+
 merge_ibw_data <- function(cum_Q_data) {
   
   targetFile <- cum_Q_data
@@ -262,7 +272,7 @@ merge_ibw_data <- function(cum_Q_data) {
       FROM
         targetFile tf
       JOIN
-        ibwHydro ih ON (tf.stormStart BETWEEN ih.ibwBegin and ih.ibwEnd OR tf.stormEnd BETWEEN ih.ibwBegin and ih.ibwEnd);
+        ibwHydro ih ON ((tf.stormStart <= ih.ibwEnd) AND (tf.stormEnd >= ih.ibwBegin));
       ') %>% 
     group_by(stormMark) %>% 
     summarise(
@@ -286,7 +296,8 @@ mergedSubCurryData <- lapply(flowData, merge_ibw_data)
 
 # combine list of data frames
 
-contributingFlow <- bind_rows(mergedSubCurryData)
+contributingFlow <- bind_rows(mergedSubCurryData) %>% 
+  arrange(stormMark, subcatchment)
 
 
 # plotting ----------------------------------------------------------------
@@ -299,19 +310,30 @@ contributingFlow %>%
     subcatchment = replace(subcatchment, grepl("4643", subcatchment), "sweetwater"),
     subcatchment = replace(subcatchment, grepl("4693", subcatchment), "shea"),
     subcatchment = replace(subcatchment, grepl("4688", subcatchment), "berneil"),
-    subcatchment = replace(subcatchment, grepl("4678", subcatchment), "lake marguerite"),
+    subcatchment = replace(subcatchment, grepl("4678", subcatchment), "lakeMarguerite"),
     subcatchment = replace(subcatchment, grepl("4613", subcatchment), "silverado"),
     subcatchment = replace(subcatchment, grepl("4623", subcatchment), "interceptor"),
     subcatchment = replace(subcatchment, grepl("4628", subcatchment), "mcdonald"),
-    subcatchment = replace(subcatchment, grepl("4618", subcatchment), "indian school"),
-    subcatchment = replace(subcatchment, grepl("4728", subcatchment), "granite reef"),
+    subcatchment = replace(subcatchment, grepl("4618", subcatchment), "indianSchool"),
+    subcatchment = replace(subcatchment, grepl("4728", subcatchment), "graniteReef"),
     subcatchment = replace(subcatchment, grepl("4603", subcatchment), "mckellips")
   ) %>% 
+  # subcatchments to factor to control their position on the y-axis of the resulting plot
+  mutate(subcatchment = factor(subcatchment, levels = c("mckellips",
+                                                        "indianSchool",
+                                                        "mcdonald",
+                                                        "silverado",
+                                                        "shea",
+                                                        "sweetwater",
+                                                        "graniteReef",
+                                                        "interceptor",
+                                                        "lakeMarguerite",
+                                                        "berneil"))) %>% 
   ggplot(aes(x = stormMark, y = subcatchment, fill = percentOfFlow)) +
   geom_raster() +
   scale_fill_gradient(name="log(% flow @ Curry)") +
-  ggtitle("flow within IBW subcatchments as a percent \nof total flow at Curry for a given storm",
-          subtitle = "includes all storms")
+  ggtitle("flow within subcatchments as a % of total flow @ Curry\n* mckellips:sweetwater reflect reach length \n* graniteReef:berneil treated as contributing to the main channel",
+          subtitle = "updated 2018-07-20 using a more inclusive match between MCFCD & IBW storms")
 ggsave('~/Desktop/percent_of_flow_all_storms.png')
 
 
@@ -328,12 +350,15 @@ demarcated_subcatchments <- bind_rows(adjustedDuration) %>%
   ) %>% 
   select(
     site, subStormMark = stormMark, dateTimeMod, Qls
-    ) %>% 
+  ) %>% 
   ungroup()
 
-# use read.csv to avoid tidyverse conversion to UTC
-ibwQminute <- read.csv('https://www.dropbox.com/s/sompxe82jrx1e4k/ibwQminute.csv?dl=1', stringsAsFactors = FALSE) %>% 
-  mutate(dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"))
+# use read.csv to avoid tidyverse conversion to UTC (if not already loaded from
+# workflow above)
+
+# ibwQminute <- read.csv('https://www.dropbox.com/s/sompxe82jrx1e4k/ibwQminute.csv?dl=1',
+#                        stringsAsFactors = FALSE) %>%
+#   mutate(dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"))
 
 # joining on date so be sure time zones match - looking for ""
 attr(ibwQminute$dateTime, "tzone")
@@ -372,12 +397,12 @@ curry_subcatchments_discharge <- function(stormNumber) {
         site = replace(site, grepl("4643", site), "sweetwater"),
         site = replace(site, grepl("4693", site), "shea"),
         site = replace(site, grepl("4688", site), "berneil"),
-        site = replace(site, grepl("4678", site), "lake marguerite"),
+        site = replace(site, grepl("4678", site), "lakeMarguerite"),
         site = replace(site, grepl("4613", site), "silverado"),
         site = replace(site, grepl("4623", site), "interceptor"),
         site = replace(site, grepl("4628", site), "mcdonald"),
-        site = replace(site, grepl("4618", site), "indian school"),
-        site = replace(site, grepl("4728", site), "granite reef"),
+        site = replace(site, grepl("4618", site), "indianSchool"),
+        site = replace(site, grepl("4728", site), "graniteReef"),
         site = replace(site, grepl("4603", site), "mckellips")
       ) %>% 
       select(
@@ -419,3 +444,107 @@ curry_subcatchments_discharge <- function(stormNumber) {
 
 # generate plots for all storms
 lapply(unique(contributingFlow[['stormMark']]), curry_subcatchments_discharge)
+
+
+# quantify contributing subcatchments -------------------------------------
+
+# The steps here detail calculating the reach length and side-channels that
+# contribute to flow at Curry. Reach length 1:6 reflects the number of gauges
+# from downstream (mckellips) to upstream (shea) for which there is flow at each
+# gauge for a given storm (as identified by stormMark). For example, for a given
+# stormMark, if there is flow at mckellips, indianschool, mcdonald, and shea,
+# that storm would have a reach length of 3 (even though there was flow upstream
+# of mcdonald @ shea, because that flow was not recorded at silverado, it is
+# considered as not having contributed to the flow at Curry). granite reef,
+# interceptor, lake marguerite, and berneil are considered side/contributing
+# channels but not part of the main reach so are calculated independently and
+# not factored into the reach length. A side/contributing channel is considered
+# to have contributed (= 1) ONLY if all gauges below that channel contributed to
+# flow at Curry.
+
+# require contributingFlow (if not already loaded)
+# contributingFlow <- read_csv('~/Dropbox/SNAZ meeting materials/indianBendWash/results/contributing_flow/contributing_flow.csv') %>% 
+#   arrange(stormMark, subcatchment)
+
+# put the list of subcatchments for a given storm mark into a list
+stormsList <- contributingFlow %>%
+  group_by(stormMark) %>%
+  summarise(
+    subcatchmentList = list(subcatchment),
+    subcatchmentStorms = list(subcatchmentStorms),
+    cumQibw = round(max(cumQibw), digits = 0)
+  ) %>% 
+  ungroup() 
+
+
+# identify nodes for reach length and contributing side channels
+toMcKellips <- c('4603?dl=1')
+toIndianSchool <- c('4603?dl=1',
+                    '4618?dl=1')
+toMcDonald <- c('4603?dl=1',
+                '4618?dl=1',
+                '4628?dl=1')
+toSilverado <- c('4603?dl=1',
+                 '4618?dl=1',
+                 '4628?dl=1',
+                 '4613?dl=1')
+toShea <- c('4603?dl=1',
+            '4618?dl=1',
+            '4628?dl=1',
+            '4613?dl=1',
+            '4693?dl=1')
+toSweetwater <- c('4603?dl=1',
+                  '4618?dl=1',
+                  '4628?dl=1',
+                  '4613?dl=1',
+                  '4693?dl=1',
+                  '4643?dl=1')
+fromGraniteReef <- c('4603?dl=1',
+                     '4728?dl=1')
+fromInterceptor <- c('4603?dl=1',
+                     '4618?dl=1',
+                     '4628?dl=1',
+                     '4613?dl=1',
+                     '4623?dl=1')
+fromBerneil <- c('4603?dl=1',
+                 '4618?dl=1',
+                 '4628?dl=1',
+                 '4613?dl=1',
+                 '4688?dl=1')
+fromLakeMarguerite <- c('4603?dl=1',
+                        '4618?dl=1',
+                        '4628?dl=1',
+                        '4613?dl=1',
+                        '4678?dl=1')
+
+
+# identify reach length based on continuity (flow at each site along the chain)
+# from downstream to upstream sites (mckellips:shea); identify when side
+# channels (granite reef, interceptor, lake marguerite, and berneil) are
+# contributing
+stormsList$reachLength <- NA
+stormsList$graniteReef <- NA
+stormsList$fromInterceptor <- NA
+stormsList$fromBerneil <- NA
+stormsList$fromLakeMarguerite <- NA
+for (i in 1:nrow(stormsList)) {
+  if (all(toMcKellips %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 1 }
+  if (all(toIndianSchool %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 2 }
+  if (all(toMcDonald %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 3 }
+  if (all(toSilverado %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 4 }
+  if (all(toShea %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 5 }
+  if (all(toSweetwater %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 6 }
+  if (all(fromGraniteReef %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$graniteReef = 1 }
+  if (all(fromInterceptor %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromInterceptor = 1 }
+  if (all(fromBerneil %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromBerneil = 1 }
+  if (all(fromLakeMarguerite %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromLakeMarguerite = 1 }
+}
+
+stormsList %>% 
+  mutate(
+    subcatchmentList = as.character(subcatchmentList),
+    subcatchmentStorms = as.character(subcatchmentStorms)
+  ) %>% 
+  write_csv('~/Desktop/contributing_gauges.csv')
+
+
