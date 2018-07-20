@@ -25,16 +25,16 @@ source()
 # data ingestion ----------------------------------------------------------
 
 # identify data entities
-f4603 <- 'https://www.dropbox.com/s/dwa03pc9uaoe06c/4603?dl=1'
-f4613 <- 'https://www.dropbox.com/s/wli7wrln3mgpd4y/4613?dl=1'
-f4618 <- 'https://www.dropbox.com/s/wxx26gq04stx1on/4618?dl=1'
-f4623 <- 'https://www.dropbox.com/s/tu5nalfh6k58we3/4623?dl=1'
-f4628 <- 'https://www.dropbox.com/s/v06vpkginiplswh/4628?dl=1'
-f4643 <- 'https://www.dropbox.com/s/9uxepon9yhma145/4643?dl=1'
-f4678 <- 'https://www.dropbox.com/s/tvt9aydsvuvl4m5/4678?dl=1'
-f4688 <- 'https://www.dropbox.com/s/7l1wldk5r6oaleo/4688?dl=1'
-f4693 <- 'https://www.dropbox.com/s/6zt89fjw9490lve/4693?dl=1'
-f4728 <- 'https://www.dropbox.com/s/oawg3kv9eknulbg/4728?dl=1'
+f4603 <- 'https://www.dropbox.com/s/9sitzle3efck0z7/4603?dl=1'
+f4613 <- 'https://www.dropbox.com/s/66y8dth8av7ingr/4613?dl=1'
+f4618 <- 'https://www.dropbox.com/s/5r842sg6fax28bh/4618?dl=1'
+f4623 <- 'https://www.dropbox.com/s/53epx5p6upvcqf5/4623?dl=1'
+f4628 <- 'https://www.dropbox.com/s/ntuuzla6lag5rd4/4628?dl=1'
+f4643 <- 'https://www.dropbox.com/s/q1yx8p2aytxb3xl/4643?dl=1'
+f4678 <- 'https://www.dropbox.com/s/gu84ejjjdwyz2w4/4678?dl=1'
+f4688 <- 'https://www.dropbox.com/s/razdcph6am0h7f2/4688?dl=1'
+f4693 <- 'https://www.dropbox.com/s/1up8ko2s7f3akgb/4693?dl=1'
+f4728 <- 'https://www.dropbox.com/s/3w4sa1qz1565sx9/4728?dl=1'
 
 # list data entities
 
@@ -224,7 +224,7 @@ flowData <- lapply(adjustedDuration, cumulative_discharge)
 # accuracte/consistent.
 
 # use read.csv to avoid tidyverse conversion to UTC
-ibwQminute <- read.csv('https://www.dropbox.com/s/sompxe82jrx1e4k/ibwQminute.csv?dl=1', stringsAsFactors = FALSE) %>% 
+ibwQminute <- read.csv('https://www.dropbox.com/s/mhh6wd6fyq1ljxp/ibwQminute.csv?dl=1', stringsAsFactors = FALSE) %>% 
   mutate(dateTime = as.POSIXct(dateTime, format = "%Y-%m-%d %H:%M:%S"))
 
 ibwHydro <- ibwQminute %>% 
