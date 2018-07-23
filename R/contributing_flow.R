@@ -462,9 +462,9 @@ lapply(unique(contributingFlow[['stormMark']]), curry_subcatchments_discharge)
 # to have contributed (= 1) ONLY if all gauges below that channel contributed to
 # flow at Curry.
 
-# require contributingFlow (if not already loaded)
-# contributingFlow <- read_csv('~/Dropbox/SNAZ meeting materials/indianBendWash/results/contributing_flow/contributing_flow.csv') %>% 
-#   arrange(stormMark, subcatchment)
+# acquire contributingFlow (if not already loaded)
+contributingFlow <- read_csv('~/Dropbox/SNAZ meeting materials/indianBendWash/results/contributing_flow/contributing_flow.csv') %>%
+  arrange(stormMark, subcatchment)
 
 # put the list of subcatchments for a given storm mark into a list
 stormsList <- contributingFlow %>%
@@ -523,7 +523,7 @@ fromLakeMarguerite <- c('4603?dl=1',
 # channels (granite reef, interceptor, lake marguerite, and berneil) are
 # contributing
 stormsList$reachLength <- NA
-stormsList$graniteReef <- NA
+stormsList$fromGraniteReef <- NA
 stormsList$fromInterceptor <- NA
 stormsList$fromBerneil <- NA
 stormsList$fromLakeMarguerite <- NA
@@ -534,7 +534,7 @@ for (i in 1:nrow(stormsList)) {
   if (all(toSilverado %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 4 }
   if (all(toShea %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 5 }
   if (all(toSweetwater %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$reachLength = 6 }
-  if (all(fromGraniteReef %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$graniteReef = 1 }
+  if (all(fromGraniteReef %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromGraniteReef = 1 }
   if (all(fromInterceptor %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromInterceptor = 1 }
   if (all(fromBerneil %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromBerneil = 1 }
   if (all(fromLakeMarguerite %in% unlist(stormsList[i,][['subcatchmentList']]))) { stormsList[i,]$fromLakeMarguerite = 1 }
