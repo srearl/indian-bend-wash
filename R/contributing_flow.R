@@ -251,6 +251,10 @@ ibwHydro <- ibwQminute %>%
 # updated to pair MCFCD and IBW storms if there was only overlap between the
 # two.
 
+#  on comparing date-range overlap:
+#  https://stackoverflow.com/questions/325933/determine-whether-two-date-ranges-overlap
+
+# original where-clause:
 # ibwHydro ih ON (tf.stormStart BETWEEN ih.ibwBegin and ih.ibwEnd OR tf.stormEnd
 # BETWEEN ih.ibwBegin and ih.ibwEnd);
 
