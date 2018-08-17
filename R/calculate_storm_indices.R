@@ -57,23 +57,41 @@ storms_with_chem <- ibwQchem %>%
   # emc: Event Mean Concentration
   # maxC: maximum concentration
 
-hydro_metrics <- ibwQchem %>% 
-  filter(stormMark %in% c(storms_with_chem)) %>%
-  group_by(stormMark, analyte) %>%
-  filter(any(!is.na(concentration))) %>% 
+hydro_metrics <- inner_join(
+  ibwQchem %>% 
+    filter(stormMark %in% c(storms_with_chem)) %>%
+    group_by(stormMark, analyte) %>%
+    filter(any(!is.na(concentration))) %>% 
+    mutate(
+      intpConc = na.approx(concentration, x = dateTime, na.rm = FALSE),
+      intpConc = na.locf(intpConc, fromLast = TRUE, na.rm = FALSE),
+      intpConc = na.locf(intpConc, na.rm = FALSE),
+      load = (intpConc * Qls * (60/1000000)),
+      normLoad = cumsum(load)/max(cumsum(load))
+    ) %>% 
+    summarise(
+      stormDuration = round(difftime(max(dateTime), min(dateTime), units = c("hours")), digits = 1),
+      totalLoad = round(sum(load), digits = 0),
+      b = round(coef(nls(cumsum(load)/max(cumsum(load)) ~ I((cumQ/max(cumQ))^b), start=list(b=1), trace = F)), digits = 3),
+      cumQ = round(max(cumQ), digits = 0),
+      maxQ = round(max(Qls), digits = 0),
+      emc = round((sum(load)/max(cumQ))*1000000, digits = 2),
+      maxC = round(max(concentration, na.rm = TRUE), digits = 2)
+    ) %>% ungroup(),
+  ibwQchem %>% 
+    filter(
+      stormMark %in% c(storms_with_chem),
+      !is.na(concentration)
+    ) %>%
+    group_by(stormMark, analyte) %>%
+    summarise(
+      chemDuration = round(difftime(max(dateTime), min(dateTime), units = c("hours")), digits = 1),
+      numSamples = n()
+    ) %>% 
+    ungroup(),
+  by = c("stormMark", "analyte")
+) %>% 
   mutate(
-    intpConc = na.approx(concentration, x = dateTime, na.rm = FALSE),
-    intpConc = na.locf(intpConc, fromLast = TRUE, na.rm = FALSE),
-    intpConc = na.locf(intpConc, na.rm = FALSE),
-    load = (intpConc * Qls * (60/1000000)),
-    normLoad = cumsum(load)/max(cumsum(load))
-  ) %>% 
-  summarise(
-    stormDuration = round(difftime(max(dateTime), min(dateTime), units = c("hours")), digits = 1),
-    totalLoad = round(sum(load), digits = 0),
-    b = round(coef(nls(cumsum(load)/max(cumsum(load)) ~ I((cumQ/max(cumQ))^b), start=list(b=1), trace = F)), digits = 3),
-    cumQ = round(max(cumQ), digits = 0),
-    maxQ = round(max(Qls), digits = 0),
-    emc = round((sum(load)/max(cumQ))*1000000, digits = 2),
-    maxC = round(max(concentration, na.rm = TRUE), digits = 2)
+    chemCoverage = (chemDuration / stormDuration) * 100,
+    sampleDensity = (numSamples / stormDuration)
   )

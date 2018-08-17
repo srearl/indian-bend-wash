@@ -6,7 +6,7 @@ repository for the analysis of Indian Bend Wash stormwater hydrology and chemist
 
 ### Weed out storms with poor coverage
 
-* Use 50% as initial threshold of coverage, but visually check other hydrographs to see if they are large storms with still decent coverage over main pulse. Storms with > 50% of the storm covered by chem data include: 9, 10, 11, 14, 15, 16, 17, 29, 32, 33, 34, 37, 39, 42, 22, 67, 74 
+* Use 50% as initial threshold of coverage, but visually check other hydrographs to see if they are large storms with still decent coverage over main pulse. Storms with > 50% of the storm covered by chem data include: 9, 10, 11, 14, 15, 16, 17, 29, 32, 33, 34, 37, 39, 42, 67, 74 
 
 * Questionable storms:
     + 25: 32% of storm covered, not much on falling limb, but good coverage of rising limb
