@@ -18,32 +18,17 @@ library(zoo)
 
 # optons ------------------------------------------------------------------
 
-options(scipen=999)
+options(scipen = 999)
 
 
 # data import -------------------------------------------------------------
 
-# import data from Dropbox, and remove analytes with a very small number of
-# samples
-
-# note specifying the time zone on import, which is critical to maintaining the
-# integrity of these data as readr will otherwise convert dates/times to UTC
-# without warning nor shifting the corresponding data accordingly
-
-ibwQchem <- read_csv('https://www.dropbox.com/s/wsseakmze4hsnws/ibwQchem.csv?dl=1',
-                     locale = locale(tz = "America/Phoenix")) %>%  # note !!!
-  mutate(concentration = as.numeric(concentration)) %>% 
-  filter(!analyte %in% c('SO4D_IC', 'NiD_ICP', 'PbD_ICP', 'CaD_FLAME_AA', 'NO3D_IC'))
+# moved to import_from_file.R
 
 
 # identify storms with chemistry data -------------------------------------
 
-storms_with_chem <- ibwQchem %>% 
-  group_by(stormMark, analyte) %>%
-  filter(any(!is.na(concentration))) %>%
-  ungroup() %>%
-  distinct(stormMark) %>%
-  pull()
+# moved to import_from_file.R
 
 
 # calculate hydro metric(s) -----------------------------------------------
@@ -56,8 +41,20 @@ storms_with_chem <- ibwQchem %>%
   # maxQ: maximum discharge
   # emc: Event Mean Concentration
   # maxC: maximum concentration
+  # monsoon: whether storm occurs during monsoon season (1 = mos. 7-9)
+  # antecedentDay: antecedent dry day
 
-hydro_metrics <- inner_join(
+# distribution of months in which storms with good chem. coverage occurr
+# (for assigning a season index) - no June or Oct storms in this set
+ibwQchem %>% 
+  filter(stormMark %in% c(storms_with_chem)) %>%
+  distinct(dateTime) %>% 
+  mutate(month = month(dateTime)) %>% 
+  ggplot(aes(x = month)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks = c(1:12))
+
+hydroMetrics <- inner_join(
   ibwQchem %>% 
     filter(stormMark %in% c(storms_with_chem)) %>%
     group_by(stormMark, analyte) %>%
@@ -67,7 +64,11 @@ hydro_metrics <- inner_join(
       intpConc = na.locf(intpConc, fromLast = TRUE, na.rm = FALSE),
       intpConc = na.locf(intpConc, na.rm = FALSE),
       load = (intpConc * Qls * (60/1000000)),
-      normLoad = cumsum(load)/max(cumsum(load))
+      normLoad = cumsum(load)/max(cumsum(load)),
+      monsoon = case_when(
+        month(dateTime) %in% c(7,8,9) ~ 1,
+        TRUE ~ 0
+      )
     ) %>% 
     summarise(
       stormDuration = round(difftime(max(dateTime), min(dateTime), units = c("hours")), digits = 1),
@@ -76,22 +77,17 @@ hydro_metrics <- inner_join(
       cumQ = round(max(cumQ), digits = 0),
       maxQ = round(max(Qls), digits = 0),
       emc = round((sum(load)/max(cumQ))*1000000, digits = 2),
-      maxC = round(max(concentration, na.rm = TRUE), digits = 2)
-    ) %>% ungroup(),
-  ibwQchem %>% 
-    filter(
-      stormMark %in% c(storms_with_chem),
-      !is.na(concentration)
+      maxC = round(max(concentration, na.rm = TRUE), digits = 2),
+      monsoon = max(monsoon)
     ) %>%
-    group_by(stormMark, analyte) %>%
-    summarise(
-      chemDuration = round(difftime(max(dateTime), min(dateTime), units = c("hours")), digits = 1),
-      numSamples = n()
-    ) %>% 
     ungroup(),
-  by = c("stormMark", "analyte")
-) %>% 
-  mutate(
-    chemCoverage = (chemDuration / stormDuration) * 100,
-    sampleDensity = (numSamples / stormDuration)
-  )
+  ibwQminute %>%
+    group_by(stormMark) %>%
+    summarise(
+      minDT = min(dateTime),
+      maxDT = max(dateTime)
+    ) %>%
+    ungroup() %>%
+    mutate(antecedentDay = difftime(minDT, lag(maxDT, n = 1L), units = c("days"))) %>% 
+    select(stormMark, antecedentDay),
+  by = c("stormMark"))

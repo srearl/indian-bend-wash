@@ -32,39 +32,17 @@ library(lubridate)
 
 # options -----------------------------------------------------------------
 
-options(scipen=999)
+options(scipen = 999)
 
 
 # data import -------------------------------------------------------------
 
-# import data from Dropbox, and remove analytes with a very small number of
-# samples from ibwQchem
+# moved to import_from_file.R
 
-# note specifying the time zone on import, which is critical to maintaining the
-# integrity of these data as readr will otherwise convert dates/times to UTC
-# without warning nor shifting the corresponding data accordingly
 
-ibwQchem <- read_csv('https://www.dropbox.com/s/wsseakmze4hsnws/ibwQchem.csv?dl=1',
-                     locale = locale(tz = "America/Phoenix")) %>%  # note !!!
-  mutate(concentration = as.numeric(concentration)) %>% 
-  filter(!analyte %in% c('SO4D_IC', 'NiD_ICP', 'PbD_ICP', 'CaD_FLAME_AA', 'NO3D_IC'))
+# subset to relevant storms -----------------------------------------------
 
-# pare to storms of sufficient data, two approaches:
-# 1. any storm with chem data
-storms_with_chem <- ibwQchem %>% 
-  group_by(stormMark, analyte) %>%
-  filter(any(!is.na(concentration))) %>%
-  ungroup() %>%
-  distinct(stormMark) %>%
-  pull()
-
-# 2. storms with reasonable sample-data coverage as identified by Katie
-storms_with_chem <- c(9, 10, 11, 14, 15, 16, 17, 29, 32, 33, 34, 37, 39, 42, 67, 74)
-
-ibwQminute <- read_csv('https://www.dropbox.com/s/mhh6wd6fyq1ljxp/ibwQminute.csv?dl=1',
-                       locale = locale(tz = "America/Phoenix")) %>% 
-  select(-cumQ) %>% 
-  filter(stormMark %in% storms_with_chem)
+# moved to import_from_file.R
 
 
 # calculate hydro and runoff metrics --------------------------------------
@@ -132,9 +110,10 @@ bracketQnorm[bracketQnorm$max_min == "minDateTime",]$maxMinDate <- bracketQnorm[
 
 # join the max Qnorm boundaries to the discharge record (from data import)
 minuteMinMaxQnorm <- ibwQminute %>% 
+  filter(stormMark %in% storms_with_chem) %>% 
   left_join(bracketQnorm[,c("max_min", "maxMinDate")], by = c("dateTime" = "maxMinDate"))
 
-# assign rising (0) and falling (1) limb desinations to all points in the
+# assign rising (0) and falling (1) limb designations to all points in the
 # hydrgraph (except between the min and max bounds when Qnorm is a range)
 
 minuteMinMaxQnorm$limb <- NA
