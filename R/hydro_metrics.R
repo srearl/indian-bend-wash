@@ -10,25 +10,37 @@
 # those characteristics could be used.
 
 
-# libraries ---------------------------------------------------------------
+# libraries (in addition to TV from import_from_file.R) -------------------
 
-library(tidyverse)
 library(zoo)
 
 
-# optons ------------------------------------------------------------------
+# options -----------------------------------------------------------------
 
 options(scipen = 999)
 
 
 # data import -------------------------------------------------------------
 
-# moved to import_from_file.R
+if (!exists("ibwQchem") | !exists("ibwQminute")) {
+  source("import_from_file.R")
+}
 
 
-# identify storms with chemistry data -------------------------------------
+# assess months in which storms occur -------------------------------------
 
-# moved to import_from_file.R
+# distribution of months in which storms with good chem. coverage occur for
+# assigning a season index; no June or Oct storms in this set so set monsoon (1)
+# to storms in July, August, and September. For exploration only, uncomemnt to
+# rerun.
+
+# ibwQchem %>% 
+#   filter(stormMark %in% c(storms_with_chem)) %>%
+#   distinct(dateTime) %>% 
+#   mutate(month = month(dateTime)) %>% 
+#   ggplot(aes(x = month)) +
+#   geom_histogram(binwidth = 1) +
+#   scale_x_continuous(breaks = c(1:12))
 
 
 # calculate hydro metric(s) -----------------------------------------------
@@ -43,16 +55,6 @@ options(scipen = 999)
   # maxC: maximum concentration
   # monsoon: whether storm occurs during monsoon season (1 = mos. 7-9)
   # antecedentDay: antecedent dry day
-
-# distribution of months in which storms with good chem. coverage occurr
-# (for assigning a season index) - no June or Oct storms in this set
-ibwQchem %>% 
-  filter(stormMark %in% c(storms_with_chem)) %>%
-  distinct(dateTime) %>% 
-  mutate(month = month(dateTime)) %>% 
-  ggplot(aes(x = month)) +
-  geom_histogram(binwidth = 1) +
-  scale_x_continuous(breaks = c(1:12))
 
 hydroMetrics <- inner_join(
   ibwQchem %>% 
@@ -71,7 +73,7 @@ hydroMetrics <- inner_join(
       )
     ) %>% 
     summarise(
-      stormDuration = round(difftime(max(dateTime), min(dateTime), units = c("hours")), digits = 1),
+      stormDuration = difftime(max(dateTime), min(dateTime), units = c("hours")),
       totalLoad = round(sum(load), digits = 0),
       b = round(coef(nls(cumsum(load)/max(cumsum(load)) ~ I((cumQ/max(cumQ))^b), start=list(b=1), trace = F)), digits = 3),
       cumQ = round(max(cumQ), digits = 0),
@@ -90,4 +92,9 @@ hydroMetrics <- inner_join(
     ungroup() %>%
     mutate(antecedentDay = difftime(minDT, lag(maxDT, n = 1L), units = c("days"))) %>% 
     select(stormMark, antecedentDay),
-  by = c("stormMark"))
+  by = c("stormMark")) %>% 
+  mutate(
+    monsoon = as.factor(monsoon),
+    stormDuration = round(as.numeric(stormDuration), digits = 1),
+    antecedentDay = round(as.numeric(antecedentDay), digits = 2)
+  )
