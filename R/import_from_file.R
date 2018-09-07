@@ -68,9 +68,12 @@ contributingGauges <- read_csv('https://www.dropbox.com/s/7mgz8ajt0f8788i/contri
   )
 
 
-
 # rainfall ----------------------------------------------------------------
 
-# ibwRainfall <- read_csv('https://www.dropbox.com/s/yz1iwkdljecruqs/ibwRainfall.csv?dl=1') %>% 
-#   mutate(rainfall = rainfall_inches * 25.4) %>% 
-#   select(stormMark, rainfall)
+# import Katie's preciptation estimates
+katiePrecip <- read_csv('https://www.dropbox.com/s/yz1iwkdljecruqs/ibwRainfall.csv?dl=1') %>% 
+  mutate(arcGisNN = rainfall_inches * 25.4) %>% 
+  dplyr::select(-rainfall_inches)
+
+# import R-derived IDW preciptation estimates
+ibwPrecipitation <- read_csv('https://www.dropbox.com/s/zwlrzpffxey6a6e/ibwPrecipitation.csv?dl=1')
