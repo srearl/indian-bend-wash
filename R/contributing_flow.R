@@ -35,7 +35,8 @@ f4643 <- 'https://www.dropbox.com/s/q1yx8p2aytxb3xl/4643?dl=1'
 f4678 <- 'https://www.dropbox.com/s/gu84ejjjdwyz2w4/4678?dl=1'
 f4688 <- 'https://www.dropbox.com/s/razdcph6am0h7f2/4688?dl=1'
 f4693 <- 'https://www.dropbox.com/s/1up8ko2s7f3akgb/4693?dl=1'
-f4728 <- 'https://www.dropbox.com/s/3w4sa1qz1565sx9/4728?dl=1'
+# f4728 <- 'https://www.dropbox.com/s/3w4sa1qz1565sx9/4728?dl=1' # original set truncated to 2013
+f4728 <- 'https://www.dropbox.com/s/rqg2njic4re2duy/4728?dl=1'
 
 # list data entities
 
@@ -125,9 +126,15 @@ storm_delineation <- function(imported_data) {
 # delinate storms from all MCFCD sites
 delineatedData <- lapply(importedData, storm_delineation)
 
-# remove single-line storm from site 4688
+# Remove single-line storms from sites 4688 and 4728. Note that site 4688 was
+# addressed in conjunstion with all other sites; 4728 was addressed in isolation
+# (hence delineatedData[[1]]).
 delineatedData[[8]] <- delineatedData[[8]] %>%
   filter(stormMark != 209)
+
+delineatedData[[1]] <- delineatedData[[1]] %>%
+  filter(stormMark != 263)
+
 
 # adjust start and end times of storms ------------------------------------
 
