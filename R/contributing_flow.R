@@ -10,8 +10,13 @@
 
 # As of 2018-02-03, 09512162 data are provisional through 2017-07-05 08:45
 
+# update 2018-09-11: Nancy noticed that early years at Granite Reef were not
+# convered; seems years prior to 2013 were not included in the data that I
+# received from MCFCD but for that site only; Granite Reef (4728) downloaded
+# from the website and the analyses rerun.
 
 # libraries ---------------------------------------------------------------
+
 library(tidyverse)
 library(sqldf)
 library(lubridate)
@@ -35,7 +40,7 @@ f4643 <- 'https://www.dropbox.com/s/q1yx8p2aytxb3xl/4643?dl=1'
 f4678 <- 'https://www.dropbox.com/s/gu84ejjjdwyz2w4/4678?dl=1'
 f4688 <- 'https://www.dropbox.com/s/razdcph6am0h7f2/4688?dl=1'
 f4693 <- 'https://www.dropbox.com/s/1up8ko2s7f3akgb/4693?dl=1'
-# f4728 <- 'https://www.dropbox.com/s/3w4sa1qz1565sx9/4728?dl=1' # original set truncated to 2013
+# f4728 <- 'https://www.dropbox.com/s/3w4sa1qz1565sx9/4728?dl=1' # original set missing prior to 2013
 f4728 <- 'https://www.dropbox.com/s/rqg2njic4re2duy/4728?dl=1'
 
 # list data entities
@@ -126,13 +131,10 @@ storm_delineation <- function(imported_data) {
 # delinate storms from all MCFCD sites
 delineatedData <- lapply(importedData, storm_delineation)
 
-# Remove single-line storms from sites 4688 and 4728. Note that site 4688 was
-# addressed in conjunstion with all other sites; 4728 was addressed in isolation
-# (hence delineatedData[[1]]).
+# Remove single-line storms from sites 4688 and 4728.
 delineatedData[[8]] <- delineatedData[[8]] %>%
   filter(stormMark != 209)
-
-delineatedData[[1]] <- delineatedData[[1]] %>%
+delineatedData[[10]] <- delineatedData[[10]] %>%
   filter(stormMark != 263)
 
 
@@ -343,8 +345,8 @@ contributingFlow %>%
   ggplot(aes(x = stormMark, y = subcatchment, fill = percentOfFlow)) +
   geom_raster() +
   scale_fill_gradient(name="log(% flow @ Curry)") +
-  ggtitle("flow within subcatchments as a % of total flow @ Curry\n* mckellips:sweetwater reflect reach length \n* graniteReef:berneil treated as contributing to the main channel",
-          subtitle = "updated 2018-07-20 using a more inclusive match between MCFCD & IBW storms")
+  ggtitle("flow within subcatchments as % of total flow @ Curry\n*mckellips:sweetwater ~ reach length\n*graniteReef:berneil ~ tributaries",
+          subtitle = "update 2018-07-20: more inclusive match between MCFCD & IBW storms\nupdate 2018-09-11 included missing Granite Reef data")
 ggsave('~/Desktop/percent_of_flow_all_storms.png')
 
 
@@ -556,6 +558,6 @@ stormsList %>%
     subcatchmentList = as.character(subcatchmentList),
     subcatchmentStorms = as.character(subcatchmentStorms)
   ) %>% 
-  write_csv('~/Desktop/contributing_gauges.csv')
+  write_csv('~/Dropbox/SNAZ meeting materials/indianBendWash/results/contributing_flow/contributing_gauges.csv')
 
 
