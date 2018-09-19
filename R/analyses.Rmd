@@ -89,15 +89,15 @@ hydroMetrics %>%
 ```
 
 
-NMDS
+Generate a data frame of hysteresis data for a particular analyte to include in a ordination.
 
-```{r function-nmds-hystersis, echo=FALSE}
+```{r function-hyst-data, echo=FALSE}
 
-# function to generate a NMDS of hysteresis metrics HImean and FI. input
-# parameter (chemSpecies) is the quoted name of the analyte of interest (e.g.,
-# "ClD_LACHAT")
+# Function to generate a data frame of hysteresis data for a particular analyte
+# to include in a ordination. Input parameter (chemSpecies) is the quoted name
+# of the analyte of interest (e.g., "ClD_LACHAT")
 
-generate_nmds <- function(chemSpecies) {
+generate_hyst_data <- function(chemSpecies) {
   
   hydroMetrics %>% 
     inner_join(
@@ -115,70 +115,30 @@ generate_nmds <- function(chemSpecies) {
   rownames(chemSpeciesData) <- chemSpeciesData$stormMark # stormMark to row name
   chemSpeciesData <- chemSpeciesData[,c("HImean", "FI")] # remove stormMark col
   
-  ibsNMDS <- metaMDS(chemSpeciesData) # NMDS
-  
-  return(ibsNMDS)
+  return(chemSpeciesData)
   
 }
 
-# example
-# nmdsOut <- generate_nmds("NO3D_LACHAT")
-# ordiplot(nmdsOut, type = "text", display = "sites")
+# EXAMPLE
+# chemCl <- generate_chem_data("ClD_LACHAT")
+
 ```
 
 
-PCA
+Generate a data frame of environmental data to include in a ordination.
 
-* without predictors, RDA is the same as PCA
-* in vegan, giving the function rda() dataframe without predictors runs a PCA very simiar to princomp
-https://rpubs.com/brouwern/veganpca
+```{r function-env-data, echo=FALSE}
 
-```{r function-pca-hysteresis, echo=FALSE}
+# Function to generate a data frame of environmental data. Input parameter
+# (rmcolin) is a binary flag indicating if a selection of collinear variables
+# should be included (0 (default)) or removed (1). Variables to remove should be
+# adjusted in the function.
 
-# function to generate a PCA/RDA of hysteresis metrics HImean and FI. input
-# parameter (chemSpecies) is the quoted name of the analyte of interest (e.g.,
-# "ClD_LACHAT")
-
-generate_pca <- function(chemSpecies) {
+generate_env_data <- function(rmcolin) {
   
-  hydroMetrics %>% 
-    inner_join(
-      hysteresisIndices,
-      by = c("stormMark", "analyte")
-    ) %>% 
-    inner_join(
-      contributingGauges,
-      by = c("stormMark")
-    ) %>% 
-    filter(analyte == chemSpecies) %>%
-    select(stormMark, HImean, FI) -> chemSpeciesData
-  
-  chemSpeciesData <- as.data.frame(chemSpeciesData) # to data frame
-  rownames(chemSpeciesData) <- chemSpeciesData$stormMark # stormMark to row name
-  chemSpeciesData <- chemSpeciesData[,c("HImean", "FI")] # remove stormMark col
-  
-  ibwPCA <- rda(chemSpeciesData) # PCA
-  
-  return(ibwPCA)
-  
-}
-
-# example
-# clPCA <- generate_pca("ClD_LACHAT")
-# plot(clPCA)
-# biplot(clPCA)
-```
-
-
-Fit an environmental vector or factor onto PCA
-
-```{r function-envfit-hysteresis, echo=FALSE}
-
-# function to fit environmental variables to a PCA. input parameters include
-# the result of a successful PCA (ordination) and (chemSpecies) is the quoted
-# name of the analyte of interest (e.g., "ClD_LACHAT")
-
-generate_envfit <- function(ordination, chemSpecies) {
+  if (missing(rmcolin)) {
+    rmcolin <- 0
+  }
   
   hydroMetrics %>% 
     inner_join(
@@ -194,115 +154,77 @@ generate_envfit <- function(ordination, chemSpecies) {
       by = c("stormMark")
     ) %>% 
     filter(analyte == chemSpecies) %>%
-    select(-analyte, -b, -HImean, -CQpeak, -CQinit, -FI) -> envData
+    select(-analyte, -b, -HImean, -CQpeak, -CQinit, -FI) -> envData 
+  
+  if (rmcolin == 1) {
+    
+    # from: cor(envData[sapply(envData, is.numeric)], method = "pearson")
+    envData <- envData  %>% 
+      select(-maxC, -maxQ, -cumQ, -IDW_IDP2) 
+  }
   
   envData <- as.data.frame(envData) # to data frame
   rownames(envData) <- envData$stormMark # stormMark to row name
   envData <- subset(envData, select = -c(stormMark)) # remove stormMark col
   
-  envDataFit <- envfit(ordination, envData, permutations = 999)
-  
-  return(envDataFit)
+  return(envData)
   
 }
 
-# example
-# rdaOut <- generate_pca("ClD_LACHAT")
-# envFit <- generate_envfit(rdaOut, "ClD_LACHAT")
-# plot(rdaOut)
-# plot(envFit)
-# plot(envFit, p.max = 0.1)
+# EXAMPLE
+# envData <- generate_env_data(1)
 ```
 
 
-workflow: PCA + fitting env. data
+workflow: NMDS, PCA, and PCA + fitting env. data
 
-```{r PCA_env}
+* without predictors, RDA is the same as PCA
+* in vegan, giving the function rda() dataframe without predictors runs a PCA very simiar to princomp
+https://rpubs.com/brouwern/veganpca
 
-hystPCA <- generate_pca("NO3D_LACHAT")
-hystENV <- generate_envfit(hystRDA, "NO3D_LACHAT")
+```{r NMDS_PCA_env}
 
-plot(hystPCA)
-plot(hystENV)
-plot(hystENV, p.max = 0.1)
+hystData <- generate_hyst_data("ClD_LACHAT") # generate hysteresis data
+envData <- generate_env_data(1) # generate environmental data
+
+ibwNMDS <- metaMDS(hystData) # NMDS
+clPCA <- rda(hystData) # PCA
+clPCAenv <- envfit(clPCA, envData, permutations = 999) # fit env data to PCA
+
+plot(clPCA)
+plot(clPCAenv)
+plot(clPCAenv, p.max = 0.1)
 ```
 
 
-Function to generate RDA of hysteresis metrics HImean & FI, constrained to environmental variables.
+workflow: generate RDA of hysteresis metrics HImean & FI constrained to environmental variables. 
 
 ```{r RDA}
 
-# function to generate a RDA of hysteresis metrics HImean and FI. input
-# parameter (chemSpecies) is the quoted name of the analyte of interest (e.g.,
-# "ClD_LACHAT")
+envData <- generate_env_data(1) # generate environmental data
 
-generate_rda <- function(chemSpecies) {
-  
-  # hysteresis metrics
-  hydroMetrics %>% 
-    inner_join(
-      hysteresisIndices,
-      by = c("stormMark", "analyte")
-    ) %>% 
-    inner_join(
-      contributingGauges,
-      by = c("stormMark")
-    ) %>% 
-    filter(analyte == chemSpecies) %>%
-    select(stormMark, HImean, FI) -> chemSpeciesData
-  
-  chemSpeciesData <- as.data.frame(chemSpeciesData) # to data frame
-  rownames(chemSpeciesData) <- chemSpeciesData$stormMark # stormMark to row name
-  chemSpeciesData <- chemSpeciesData[,c("HImean", "FI")] # remove stormMark col
-  
-  # environmental matrix
-  hydroMetrics %>% 
-    inner_join(
-      hysteresisIndices,
-      by = c("stormMark", "analyte")
-    ) %>% 
-    inner_join(
-      contributingGauges,
-      by = c("stormMark")
-    ) %>% 
-    inner_join(
-      ibwPrecipitation %>% select(stormMark, IDW_IDP2),
-      by = c("stormMark")
-    ) %>% 
-    filter(analyte == chemSpecies) %>%
-    select(-analyte, -b, -HImean, -CQpeak, -CQinit, -FI) -> envData
-  
-  envData <- as.data.frame(envData) # to data frame
-  rownames(envData) <- envData$stormMark # stormMark to row name
-  envData <- subset(envData, select = -c(stormMark)) # remove stormMark col 
-  
-  # RDA
-  chemRDA <- rda(chemSpeciesData ~ ., envData) # call RDA by formula, here all env data
-  # chemRDA <- rda(chemSpeciesData ~ stormDuration, envData) # call RDA by formula, here only stormDuration
-  # chemRDA <- rda(chemSpeciesData, envData) # fit dependent to all independent
-  
-  return(chemRDA)
-  
-}
+hystData <- generate_hyst_data("ClD_LACHAT") # generate hysteresis data
+hystData <- generate_hyst_data("NO3D_LACHAT") # generate hysteresis data
+hystData <- generate_hyst_data("PO4D_LACHAT") # generate hysteresis data
+hystData <- generate_hyst_data("NH4_LACHAT") # generate hysteresis data
+hystData <- generate_hyst_data("DOC_TOC") # generate hysteresis data
 
-# example
-# hystRDA <- generate_rda("NO3D_LACHAT")
-# plot(hystRDA)
-```
+# full RDA
+fullRDA <- rda(hystData ~ ., envData)
+vif.cca(fullRDA)
+anova.cca(fullRDA)
+anova.cca(fullRDA, by = "margin")
+plot(fullRDA)
 
+# model selection
+m0 <- rda(hystData ~ 1, envData)
 
-workflow: PCA + fitting env. data
+finalRDA <- ordistep(m0, scope = formula(fullRDA))
+vif.cca(finalNO3)
+anova.cca(finalRDA)
+anova.cca(finalRDA, by = "margin")
+plot(finalRDA)
 
-```{r RDA}
-
-hystRDA <- generate_rda("NO3D_LACHAT")
-
-# plot(hystRDA)
-```
-
-```{r}
-ordistep(hystRDA)
-vif.cca(hystRDA)
 ```
 
 
@@ -313,5 +235,6 @@ hydroMetrics %>%
   lm(cumQ ~ totalLoad)
   
 fit <- lm(mpg ~ hp, data = hydroMetrics[hy])  # Fit the model
+
 ```
 
