@@ -129,12 +129,12 @@ Generate a data frame of environmental data to include in a ordination.
 
 ```{r function-env-data, echo=FALSE}
 
-# Function to generate a data frame of environmental data. Input parameter
-# (rmcolin) is a binary flag indicating if a selection of collinear variables
-# should be included (0 (default)) or removed (1). Variables to remove should be
-# adjusted in the function.
+# Function to generate a data frame of environmental data. Input parameters are
+# (rmcolin), a binary flag indicating if a selection of collinear variables
+# should be included (0 (default)) or removed (1), and chemSpecies, the analyte
+# of interest. Variables to remove should be adjusted in the function.
 
-generate_env_data <- function(rmcolin) {
+generate_env_data <- function(rmcolin, chemSpecies) {
   
   if (missing(rmcolin)) {
     rmcolin <- 0
@@ -184,8 +184,10 @@ https://rpubs.com/brouwern/veganpca
 
 ```{r NMDS_PCA_env}
 
-hystData <- generate_hyst_data("ClD_LACHAT") # generate hysteresis data
-envData <- generate_env_data(1) # generate environmental data
+analyte <- "ClD_LACHAT"
+
+hystData <- generate_hyst_data(analyte) # generate hysteresis data
+envData <- generate_env_data(1, analyte) # generate environmental data
 
 ibwNMDS <- metaMDS(hystData) # NMDS
 clPCA <- rda(hystData) # PCA
