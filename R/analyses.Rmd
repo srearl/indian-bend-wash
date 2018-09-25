@@ -7,6 +7,12 @@ library(vegan)
 ```
 
 
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
 ```{r data-import, echo=FALSE}
 
 source(here::here("R", "hydro_metrics.R"))
@@ -163,16 +169,24 @@ generate_env_data <- function(rmcolin, chemSpecies) {
       select(-maxC, -maxQ, -cumQ, -IDW_IDP2) 
   }
   
+  # format to accommodate vegan
   envData <- as.data.frame(envData) # to data frame
   rownames(envData) <- envData$stormMark # stormMark to row name
   envData <- subset(envData, select = -c(stormMark)) # remove stormMark col
   
+  # scale continuous env variables
+  varsCont <- envData[sapply(envData, is.numeric)] # isolate continuous vars
+  varsCont <- decostand(varsCont, method = 'standardize') # scale continuous vars
+  varsCat <- envData[sapply(envData, is.factor)] # isolate categorical vars
+  envData <- cbind(varsCont, varsCat) # new envData = scaled continuous + cat
+  
+  # return 
   return(envData)
   
 }
 
 # EXAMPLE
-# envData <- generate_env_data(1)
+# envData <- generate_env_data(1, "ClD_LACHAT")
 ```
 
 
@@ -190,12 +204,13 @@ hystData <- generate_hyst_data(analyte) # generate hysteresis data
 envData <- generate_env_data(1, analyte) # generate environmental data
 
 ibwNMDS <- metaMDS(hystData) # NMDS
-clPCA <- rda(hystData) # PCA
-clPCAenv <- envfit(clPCA, envData, permutations = 999) # fit env data to PCA
+PCA <- rda(hystData, scale = TRUE) # PCA
+PCAenv <- envfit(PCA, envData, permutations = 999) # fit env data to PCA
 
-plot(clPCA)
-plot(clPCAenv)
-plot(clPCAenv, p.max = 0.1)
+plot(PCA)
+plot(PCAenv)
+plot(PCAenv, p.max = 0.05)
+
 ```
 
 
@@ -203,31 +218,72 @@ workflow: generate RDA of hysteresis metrics HImean & FI constrained to environm
 
 ```{r RDA}
 
-envData <- generate_env_data(1) # generate environmental data
+analyte <- "ClD_LACHAT"
+analyte <- "DOC_TOC"
+analyte <- "NO3D_LACHAT"
+analyte <- "PO4D_LACHAT"
+analyte <- "NH4_LACHAT"
+analyte <- "NaD_ICP"
 
-hystData <- generate_hyst_data("ClD_LACHAT") # generate hysteresis data
-hystData <- generate_hyst_data("NO3D_LACHAT") # generate hysteresis data
-hystData <- generate_hyst_data("PO4D_LACHAT") # generate hysteresis data
-hystData <- generate_hyst_data("NH4_LACHAT") # generate hysteresis data
-hystData <- generate_hyst_data("DOC_TOC") # generate hysteresis data
+envData <- generate_env_data(1, analyte) # generate environmental data
+envData <- envData[sapply(envData, is.numeric)] # continuous only
+# envData <- subset(envData, select = -reachLength) # remove reachLengthcontinuous only
+hystData <- generate_hyst_data(analyte) # generate hysteresis data
 
 # full RDA
-fullRDA <- rda(hystData ~ ., envData)
-vif.cca(fullRDA)
-anova.cca(fullRDA)
-anova.cca(fullRDA, by = "margin")
+fullRDA <- rda(hystData ~ ., envData, scale = TRUE)
+anova(fullRDA)
+anova(fullRDA, by = "margin")
+anova(fullRDA, by = "axis")
+summary(fullRDA)[['cont']]
 plot(fullRDA)
+vif.cca(fullRDA)
 
-# model selection
-m0 <- rda(hystData ~ 1, envData)
+envfit(rda(hystData, scale = TRUE), envData) # check significance of individual vars
 
+# forward-backward selection
+m0 <- rda(hystData ~ 1, envData, scale = TRUE)
 finalRDA <- ordistep(m0, scope = formula(fullRDA))
-vif.cca(finalNO3)
-anova.cca(finalRDA)
-anova.cca(finalRDA, by = "margin")
+vif.cca(finalRDA)
+anova(finalRDA)
+anova(finalRDA, by = "margin")
+anova(finalRDA, by = "axis")
 plot(finalRDA)
+summary(finalRDA)[['cont']]
+
+# variance partitioning
 
 ```
+
+
+generally:
+Better fits to reactive species, and particularly with continuous vars only, in fact the nitrate model is significant. Storm duration has influence. 
+
+chloride
+* overall p = 0.3
+* optimal model includes only reachLength
+
+sodium
+* overall 0.52
+* optimal model includes only reachLength
+
+nitrate:
+* overall 0.079; 0.037 with only continuous
+* storm duration signifant when including only continuous
+* optimal model includes only stormDuration, but antecedentDay was significant among margins (low variance for both, though)
+
+phophate
+* overall 0.334
+* final model includes only fromInterceptor
+
+ammonium
+* overall 0.061
+* final model includes only reachLength
+
+DOC
+* overall 0.062
+* optimal model includes only reachLength
+
 
 
 ```{r}
