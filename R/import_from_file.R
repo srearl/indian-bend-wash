@@ -58,7 +58,12 @@ ibwQminute <- read_csv('https://www.dropbox.com/s/mhh6wd6fyq1ljxp/ibwQminute.csv
 # contributing flow -------------------------------------------------------
 
 contributingGauges <- read_csv('https://www.dropbox.com/s/7mgz8ajt0f8788i/contributing_gauges.csv?dl=1') %>% 
-  select(-subcatchmentList, - subcatchmentStorms, -cumQibw) %>% 
+  select(-subcatchmentList, - subcatchmentStorms, -cumQibw)
+
+contributingGauges[is.na(contributingGauges)] <- 0 # NAs to zero
+
+# factor
+contributingGauges <- contributingGauges %>% 
   mutate(
     reachLength = as.factor(reachLength),
     fromGraniteReef = as.factor(fromGraniteReef),

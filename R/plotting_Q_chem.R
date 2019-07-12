@@ -72,6 +72,7 @@ stormChemPlot <- function(storm, chem) {
 
 
 # which analytes are the most common
+# did not document ibw_q_chem???
 View(apply(ibw_q_chem[,11:32], 2, function(x) length(which(!is.na(x)))))
 
 
@@ -86,7 +87,8 @@ stormFacetPlot <- function(stormid) {
   stormChemPlot(stormid, 'NO3D_LACHAT')
   stormChemPlot(stormid, 'CaD_IC')
   stormChemPlot(stormid, 'NaD_IC')
-  stormChemPlot(stormid, 'ClD_IC')
+  # stormChemPlot(stormid, 'ClD_IC')
+  stormChemPlot(stormid, 'ClD_LACHAT')
   stormChemPlot(stormid, 'PO4D_LACHAT')
   stormChemPlot(stormid, 'NO3T_TOC_TN')
   stormChemPlot(stormid, 'DOC_TOC')
@@ -102,8 +104,8 @@ stormFacetPlot <- function(stormid) {
 
 # which storms have chem data?
 stormsWithChem <- ibwQchem %>% 
-  ilter(!is.na(concentration)) %>% 
-  istinct(stormMark)
+  filter(!is.na(concentration)) %>% 
+  distinct(stormMark)
 
 
 # generate faceted plots for storms with at least some chem data

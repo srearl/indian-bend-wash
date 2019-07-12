@@ -13,6 +13,8 @@
 # libraries (in addition to TV from import_from_file.R) -------------------
 
 library(zoo)
+library(lubridate)
+library(here)
 
 
 # options -----------------------------------------------------------------
@@ -23,7 +25,7 @@ options(scipen = 999)
 # data import -------------------------------------------------------------
 
 if (!exists("ibwQchem") | !exists("ibwQminute")) {
-  source("import_from_file.R")
+  source(here::here("R", "import_from_file.R"))
 }
 
 
