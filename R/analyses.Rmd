@@ -127,6 +127,7 @@ generate_hyst_data <- function(chemSpecies) {
 
 # EXAMPLE
 # chemCl <- generate_chem_data("ClD_LACHAT")
+# chemCl <- generate_hyst_data("ClD_LACHAT")
 
 ```
 
@@ -165,7 +166,7 @@ generate_env_data <- function(rmcolin, chemSpecies) {
   if (rmcolin == 1) {
     
     # from: cor(envData[sapply(envData, is.numeric)], method = "pearson")
-    envData <- envData  %>% 
+    envData <- envData %>% 
       select(-maxC, -maxQ, -cumQ, -IDW_IDP2) 
   }
   
@@ -290,9 +291,9 @@ DOC
 
 hydroMetrics %>% 
   filter(analyte == "ClD_LACHAT") %>% 
-  lm(cumQ ~ totalLoad)
+  lm(cumQ ~ totalLoad, data = .)
   
-fit <- lm(mpg ~ hp, data = hydroMetrics[hy])  # Fit the model
+fit <- lm(cumQ ~ totalLoad, data = hydroMetrics %>% filter(analyte == "ClD_LACHAT")) # Fit the model
 
 ```
 

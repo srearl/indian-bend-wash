@@ -24,8 +24,12 @@ options(scipen = 999)
 # without warning nor shifting the corresponding data accordingly
 
 ibwQchem <- read_csv('https://www.dropbox.com/s/wsseakmze4hsnws/ibwQchem.csv?dl=1',
-                     locale = locale(tz = "America/Phoenix")) %>%  # note !!!
-  mutate(concentration = as.numeric(concentration)) %>% 
+                     locale = locale(tz = "America/Phoenix"),  # note !!!
+                     col_types = cols('i', 'T', 'd', 'd', 'c', 'd')) %>%
+  mutate(
+    analyte = replace(analyte, grepl("NO3T_AQ2|NO3T_TRAACS", analyte), "NO3T"),
+    analyte = replace(analyte, grepl("PO4T_AQ2|PO4T_TRAACS", analyte), "PO4T")
+  ) %>%
   filter(!analyte %in% c('SO4D_IC', 'NiD_ICP', 'PbD_ICP', 'CaD_FLAME_AA', 'NO3D_IC'))
 
 
