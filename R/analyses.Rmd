@@ -34,7 +34,9 @@ hydroMetrics %>%
 ```
 
 
-Plot of Flusing Index v. HImean having joined hydroMetrics + hysteresisIndices + contributingGauges. Here grouped by `monsoon` but change grouping variable to whatever parameter is of interest (e.g., `reachLength`).
+Plot of Flusing Index v. HImean having joined hydroMetrics + hysteresisIndices +
+contributingGauges. Here grouped by `monsoon` but change grouping variable to
+whatever parameter is of interest (e.g., `reachLength`).
 
 ```{r hysteretic-responses}
 
@@ -76,7 +78,8 @@ hydroMetrics %>%
 ```
 
 
-Boxplots of totalLoad per grouping variable, here reachLength but change x to parameter of interest.
+Boxplots of totalLoad per grouping variable, here reachLength but change x to
+parameter of interest.
 
 ```{r boxplots}
 
@@ -95,9 +98,10 @@ hydroMetrics %>%
 ```
 
 
-Generate a data frame of hysteresis data for a particular analyte to include in a ordination.
+Generate a data frame of hysteresis data for a particular analyte to include in
+a ordination.
 
-```{r function-hyst-data, echo=FALSE}
+```{r fn HI and FI per analyte, echo=FALSE}
 
 # Function to generate a data frame of hysteresis data for a particular analyte
 # to include in a ordination. Input parameter (chemSpecies) is the quoted name
@@ -134,7 +138,7 @@ generate_hyst_data <- function(chemSpecies) {
 
 Generate a data frame of environmental data to include in a ordination.
 
-```{r function-env-data, echo=FALSE}
+```{r fn environmental data, echo=FALSE}
 
 # Function to generate a data frame of environmental data. Input parameters are
 # (rmcolin), a binary flag indicating if a selection of collinear variables
@@ -194,10 +198,10 @@ generate_env_data <- function(rmcolin, chemSpecies) {
 workflow: NMDS, PCA, and PCA + fitting env. data
 
 * without predictors, RDA is the same as PCA
-* in vegan, giving the function rda() dataframe without predictors runs a PCA very simiar to princomp
-https://rpubs.com/brouwern/veganpca
+* in vegan, giving the function rda() dataframe without predictors runs a PCA
+very simiar to princomp https://rpubs.com/brouwern/veganpca
 
-```{r NMDS_PCA_env}
+```{r ordination per analyte}
 
 analyte <- "ClD_LACHAT"
 
@@ -215,9 +219,10 @@ plot(PCAenv, p.max = 0.05)
 ```
 
 
-workflow: generate RDA of hysteresis metrics HImean & FI constrained to environmental variables. 
+workflow: generate RDA of hysteresis metrics HImean & FI constrained to
+environmental variables.
 
-```{r RDA}
+```{r RDA per analyte}
 
 analyte <- "ClD_LACHAT"
 analyte <- "DOC_TOC"
@@ -226,10 +231,12 @@ analyte <- "PO4D_LACHAT"
 analyte <- "NH4_LACHAT"
 analyte <- "NaD_ICP"
 
-envData <- generate_env_data(1, analyte) # generate environmental data
-envData <- envData[sapply(envData, is.numeric)] # continuous only
-# envData <- subset(envData, select = -reachLength) # remove reachLengthcontinuous only
 hystData <- generate_hyst_data(analyte) # generate hysteresis data
+envData <- generate_env_data(rmcolin = 1,
+                             chemSpecies = analyte) # generate environmental data
+# choose one:
+  envData <- envData[sapply(envData, is.numeric)] # continuous only
+  envData <- subset(envData, select = -reachLength) # remove reachLength factor
 
 # full RDA
 fullRDA <- rda(hystData ~ ., envData, scale = TRUE)
@@ -285,6 +292,55 @@ DOC
 * overall 0.062
 * optimal model includes only reachLength
 
+```{r RDA on each FI/HI }
+
+analytes <- c("ClD_LACHAT",
+              "DOC_TOC",
+              "NO3D_LACHAT",
+              "PO4D_LACHAT",
+              "NH4_LACHAT",
+              "NaD_ICP"
+              # "NO3T", # missing values
+              # "PO4T" # missing values
+)
+
+speciesDataFI <- hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  select(analyte, stormMark, FI) %>%
+  filter(analyte %in% analytes) %>% 
+  spread(key = analyte, value = FI) %>%
+  rename(rowname = stormMark) %>% 
+  column_to_rownames()
+
+fullRDA <- rda(speciesDataFI ~ ., envData, scale = TRUE)
+plot(fullRDA)
+# PCA <- rda(speciesDataFI, scale = TRUE) # PCA
+
+speciesDataHI <- hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  select(analyte, stormMark, HImean) %>%
+  filter(analyte %in% analytes) %>% 
+  spread(key = analyte, value = HImean) %>%
+  rename(rowname = stormMark) %>% 
+  column_to_rownames()
+
+fullRDA <- rda(speciesDataHI ~ ., envData, scale = TRUE)
+PCA <- rda(speciesDataHI, scale = TRUE) # PCA
+```
 
 
 ```{r}
