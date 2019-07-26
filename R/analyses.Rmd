@@ -340,6 +340,37 @@ speciesDataHI <- hydroMetrics %>%
 
 fullRDA <- rda(speciesDataHI ~ ., envData, scale = TRUE)
 PCA <- rda(speciesDataHI, scale = TRUE) # PCA
+
+# all FI/HI require envData that is not specific to any single analyte
+envData <- hydroMetrics %>% 
+  select(stormMark, stormDuration, cumQ, maxQ, monsoon, antecedentDay) %>% 
+  mutate(monsoon = as.character(as.numeric(monsoon))) %>% 
+  group_by(stormMark) %>% 
+  summarise_all(max) %>% 
+  mutate(monsoon = as.factor(monsoon)) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  inner_join(
+    ibwPrecipitation %>% select(stormMark, IDW_IDP2),
+    by = c("stormMark")
+  )
+
+# format to accommodate vegan
+envData <- as.data.frame(envData) # to data frame
+rownames(envData) <- envData$stormMark # stormMark to row name
+envData <- subset(envData, select = -c(stormMark)) # remove stormMark col
+
+# scale continuous env variables
+varsCont <- envData[sapply(envData, is.numeric)] # isolate continuous vars
+varsCont <- decostand(varsCont, method = 'standardize') # scale continuous vars
+varsCat <- envData[sapply(envData, is.factor)] # isolate categorical vars
+envData <- cbind(varsCont, varsCat) # new envData = scaled continuous + cat
+
+# remove reachLength as factor (if desired)
+envData <- envDatad %>% select(-reachLength) 
+
 ```
 
 
