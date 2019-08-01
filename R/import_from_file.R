@@ -1,7 +1,7 @@
 
 # README ------------------------------------------------------------------
 
-# Centralized location for importing data from files.
+# Centralized location for importing existing data stored in files.
 
 
 # libraries ---------------------------------------------------------------
@@ -23,9 +23,20 @@ options(scipen = 999)
 # integrity of these data as readr will otherwise convert dates/times to UTC
 # without warning nor shifting the corresponding data accordingly
 
+# total N and P:
+# per Marisa, "AQ2 and TrAAcs measure total phosphorous as phosphate, but
+# samples for Lachat are filtered so it's measuring dissolved phosphorus as
+# phosphate. So I think the TrAAcs data can be combined with its replacement-
+# the AQ2." thus NO3T_AQ2 and NO3T_TRAACS" are comingled to "NO3T", and
+# "PO4T_AQ2 and PO4T_TRAACS" are comingled to "PO4T".
+
 ibwQchem <- read_csv('https://www.dropbox.com/s/wsseakmze4hsnws/ibwQchem.csv?dl=1',
-                     locale = locale(tz = "America/Phoenix")) %>%  # note !!!
-  mutate(concentration = as.numeric(concentration)) %>% 
+                     locale = locale(tz = "America/Phoenix"),  # note !!!
+                     col_types = cols('i', 'T', 'd', 'd', 'c', 'd')) %>%
+  mutate(
+    analyte = replace(analyte, grepl("NO3T_AQ2|NO3T_TRAACS", analyte), "NO3T"),
+    analyte = replace(analyte, grepl("PO4T_AQ2|PO4T_TRAACS", analyte), "PO4T")
+  ) %>%
   filter(!analyte %in% c('SO4D_IC', 'NiD_ICP', 'PbD_ICP', 'CaD_FLAME_AA', 'NO3D_IC'))
 
 
@@ -58,7 +69,25 @@ ibwQminute <- read_csv('https://www.dropbox.com/s/mhh6wd6fyq1ljxp/ibwQminute.csv
 # contributing flow -------------------------------------------------------
 
 contributingGauges <- read_csv('https://www.dropbox.com/s/7mgz8ajt0f8788i/contributing_gauges.csv?dl=1') %>% 
-  select(-subcatchmentList, - subcatchmentStorms, -cumQibw) %>% 
+  select(-subcatchmentList, - subcatchmentStorms, -cumQibw)
+
+contributingGauges[is.na(contributingGauges)] <- 0 # NAs to zero
+
+# add reach lengths (factor (reachLength) and continuous (reachLengthKilo)) and
+# input from channels to the main stem. See ibw_gauges_spatial.R for details
+# regarding reachLengthKilo
+contributingGauges <- contributingGauges %>% 
+  mutate(
+    reachLengthKilo = case_when(
+      reachLength == 0 ~ 0,
+      reachLength == 1 ~ 1,
+      reachLength == 2 ~ 6.25,
+      reachLength == 3 ~ 9.5,
+      reachLength == 4 ~ 10.8,
+      reachLength == 5 ~ 18.3,
+      reachLength == 6 ~ 22.65
+    )
+  ) %>% 
   mutate(
     reachLength = as.factor(reachLength),
     fromGraniteReef = as.factor(fromGraniteReef),

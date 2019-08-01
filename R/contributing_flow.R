@@ -18,14 +18,15 @@
 # libraries ---------------------------------------------------------------
 
 library(tidyverse)
-library(sqldf)
 library(lubridate)
+library(fuzzyjoin)
+# library(sqldf)
 
 
 # options -----------------------------------------------------------------
 
 options(scipen = 999)
-options(sqldf.driver = "SQLite") # set sqldf to use SQLite driver
+# options(sqldf.driver = "SQLite") # set sqldf to use SQLite driver
 
 
 # data ingestion ----------------------------------------------------------
@@ -260,33 +261,56 @@ ibwHydro <- ibwQminute %>%
 # updated to pair MCFCD and IBW storms if there was only overlap between the
 # two.
 
+# update 2019-07-24: the SQL match used initially that identified MCFCD storms
+# where the start or end of the storm were within the duration of an IBW storm
+# (commented below) was found to be too restrictive. The SQL statement was
+# updated to pair MCFCD and IBW storms if there was only overlap between the
+# two. However, this too was excluding storms. A good example of this is storm
+# 27 in which flow at Indian School ended at 2012-09-07 12:39:19 but flow was
+# not recorded at Curry until 2012-09-07 14:00:00 - after flow at Indian School
+# had subsided but clearly (or, at least, seemingly) still having contributed
+# flow and to a connected system. To adddress this, I changed the matching such
+# that flow in any of the subcatchment sites occurring within 7 hours of the
+# start of flow at Curry are counted as a contributing storm. Seven hours was
+# determined by examing the lag between peak flow at Sweetwater (the most
+# upstream site) and peak flow at Curry for the following three storms, which
+# showed a lag of approximately 6-6.5 hours. This new approach could exacerbate
+# the unwanted effect of including storms that should not be considered as
+# contributing to flow at IBW and that warrants further investigation.
+# Additionally, I moved from using SQL via sqldf to make the time comparison to
+# fuzzy join.
+
+# storm 27
+# max @ Sweetwater: 2012-09-07 11:03:18
+# max @ IBW:        2012-09-07 15:30:00
+# delta ~ 6.5
+
+# storm 42
+# max @ Sweetwater: 2014-09-08 03:30:27
+# max @ IBW:        2014-09-08 09:30:00
+# delta ~ 6 hrs
+
+# storm 75
+# max @ Sweetwater: 2018-08-05 09:44:00
+# max @ IBW:        2016-08-05 16:15:00 
+# delta ~ 6.5 h
+
 #  on comparing date-range overlap:
 #  https://stackoverflow.com/questions/325933/determine-whether-two-date-ranges-overlap
-
-# original where-clause:
-# ibwHydro ih ON (tf.stormStart BETWEEN ih.ibwBegin and ih.ibwEnd OR tf.stormEnd
-# BETWEEN ih.ibwBegin and ih.ibwEnd);
 
 merge_ibw_data <- function(cum_Q_data) {
   
   targetFile <- cum_Q_data
   
-  sqldf('
-      SELECT
-        tf.site,
-        tf.stormStart,
-        tf.stormEnd,
-        ih.ibwBegin,
-        ih.ibwEnd,
-        tf.stormMark AS stormMark_sub,
-        tf.cumQ AS cumQsub,
-        ih.stormMark,
-        ih.cumQibw
-      FROM
-        targetFile tf
-      JOIN
-        ibwHydro ih ON ((tf.stormStart <= ih.ibwEnd) AND (tf.stormEnd >= ih.ibwBegin));
-      ') %>% 
+  targetFile %>% 
+    rename(
+      stormMark_sub = stormMark,
+      cumQsub = cumQ
+    ) %>% 
+    fuzzy_inner_join(ibwHydro %>% mutate(ibwBeginLead = ibwBegin - hours(7)),
+                     by = c("stormStart" = "ibwEnd", "stormEnd" = "ibwBeginLead"),
+                     match_fun = list(`<=`, `>=`)
+    ) %>%
     group_by(stormMark) %>% 
     summarise(
       subcatchment = max(site),
@@ -343,10 +367,11 @@ contributingFlow %>%
                                                         "lakeMarguerite",
                                                         "berneil"))) %>% 
   ggplot(aes(x = stormMark, y = subcatchment, fill = percentOfFlow)) +
-  geom_raster() +
+  # geom_raster() +
+  geom_tile() +
   scale_fill_gradient(name="log(% flow @ Curry)") +
-  ggtitle("flow within subcatchments as % of total flow @ Curry\n*mckellips:sweetwater ~ reach length\n*graniteReef:berneil ~ tributaries",
-          subtitle = "update 2018-07-20: more inclusive match between MCFCD & IBW storms\nupdate 2018-09-11 included missing Granite Reef data")
+  ggtitle("flow within subcatchments as % of total flow @ Curry",
+          subtitle = "* mckellips:sweetwater ~ reach length * graniteReef:berneil ~ tributaries\n* 2019-07-27 even more inclusive match between MCFCD & IBW storms\n* 2018-09-11 included missing Granite Reef data\n* 2018-07-20: more inclusive match between MCFCD & IBW storms")
 ggsave('~/Desktop/percent_of_flow_all_storms.png')
 
 
@@ -558,6 +583,6 @@ stormsList %>%
     subcatchmentList = as.character(subcatchmentList),
     subcatchmentStorms = as.character(subcatchmentStorms)
   ) %>% 
-  write_csv('~/Dropbox/SNAZ meeting materials/indianBendWash/results/contributing_flow/contributing_gauges.csv')
+  write_csv('contributing_gauges.csv')
 
 

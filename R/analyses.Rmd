@@ -1,0 +1,400 @@
+
+
+```{r libraries, echo=FALSE}
+
+library(scales)
+# library(cowplot)
+library(here)
+library(vegan)
+```
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r data-import, echo=FALSE}
+
+source(here::here("R", "hydro_metrics.R"))
+source(here::here("R", "hysteresis_calcs.R"))
+```
+
+
+Plot of of cumQ v. totalLoad. Next step here is to get at the residuals.
+
+```{r cumQ-totalLoad}
+
+hydroMetrics %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  filter(analyte %in% analytesWithTotal) %>% 
+  ggplot(aes(x = cumQ, y = totalLoad)) +
+  geom_point(aes(colour = fromLakeMarguerite)) +
+  # label storms
+  # geom_text(aes(label = stormMark), hjust = "right", vjust = "top", nudge_x = 0) +
+  geom_smooth(method = lm, se = FALSE, formula = y ~ x, size = 0.5) +
+  # stat_poly_eq(formula = y ~ x, parse = TRUE, size = 3, rr.digits = 3, colour = "black") + 
+  # stats with equation
+  stat_poly_eq(aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~")),
+               formula = y ~ x, parse = TRUE, size = 3, rr.digits = 3, colour = "black") + 
+  scale_x_log10(labels = scales::scientific) +
+  scale_y_log10(labels = scales::scientific) +
+  facet_wrap(~ analyte, scales = "free")
+
+```
+
+
+Plot of Flusing Index v. HImean having joined hydroMetrics + hysteresisIndices +
+contributingGauges. Here grouped by `monsoon` but change grouping variable to
+whatever parameter is of interest (e.g., `reachLength`).
+
+```{r hysteretic-responses}
+
+hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  ggplot(aes(x = FI, y = HImean)) + 
+  lims(x = c(-1, 1), y = c(-1, 1)) +
+  geom_vline(xintercept = 0, colour = "gray") +
+  geom_hline(yintercept = 0, colour = "gray") +
+  geom_point(aes(colour = reachLength)) + # grouping var.
+  facet_wrap(~ analyte) +
+  theme_minimal()
+
+```
+
+
+Shotgun scatterplot everything v. everything.
+
+```{r scatterplot}
+
+hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  select(totalLoad:fromInterceptor) %>% 
+  pairs()
+```
+
+
+Boxplots of totalLoad per grouping variable, here reachLength but change x to
+parameter of interest.
+
+```{r boxplots}
+
+hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  ggplot(aes(x = reachLength, y = totalLoad)) +
+  geom_boxplot() +
+  facet_wrap(~ analyte, scales = "free")
+```
+
+
+Generate a data frame of hysteresis data for a particular analyte to include in
+a ordination.
+
+```{r fn HI and FI per analyte, echo=FALSE}
+
+# Function to generate a data frame of hysteresis data for a particular analyte
+# to include in a ordination. Input parameter (chemSpecies) is the quoted name
+# of the analyte of interest (e.g., "ClD_LACHAT")
+
+generate_hyst_data <- function(chemSpecies) {
+  
+  hydroMetrics %>% 
+    inner_join(
+      hysteresisIndices,
+      by = c("stormMark", "analyte")
+    ) %>% 
+    inner_join(
+      contributingGauges,
+      by = c("stormMark")
+    ) %>% 
+    filter(analyte == chemSpecies) %>%
+    select(stormMark, HImean, FI) -> chemSpeciesData
+  
+  chemSpeciesData <- as.data.frame(chemSpeciesData) # to data frame
+  rownames(chemSpeciesData) <- chemSpeciesData$stormMark # stormMark to row name
+  chemSpeciesData <- chemSpeciesData[,c("HImean", "FI")] # remove stormMark col
+  
+  return(chemSpeciesData)
+  
+}
+
+# EXAMPLE
+# chemCl <- generate_chem_data("ClD_LACHAT")
+# chemCl <- generate_hyst_data("ClD_LACHAT")
+
+```
+
+
+Generate a data frame of environmental data to include in a ordination.
+
+```{r fn environmental data, echo=FALSE}
+
+# Function to generate a data frame of environmental data. Input parameters are
+# (rmcolin), a binary flag indicating if a selection of collinear variables
+# should be included (0 (default)) or removed (1), and chemSpecies, the analyte
+# of interest. Variables to remove should be adjusted in the function.
+
+generate_env_data <- function(rmcolin, chemSpecies) {
+  
+  if (missing(rmcolin)) {
+    rmcolin <- 0
+  }
+  
+  hydroMetrics %>% 
+    inner_join(
+      hysteresisIndices,
+      by = c("stormMark", "analyte")
+    ) %>% 
+    inner_join(
+      contributingGauges,
+      by = c("stormMark")
+    ) %>% 
+    inner_join(
+      ibwPrecipitation %>% select(stormMark, IDW_IDP2),
+      by = c("stormMark")
+    ) %>% 
+    filter(analyte == chemSpecies) %>%
+    select(-analyte, -b, -HImean, -CQpeak, -CQinit, -FI) -> envData 
+  
+  if (rmcolin == 1) {
+    
+    # from: cor(envData[sapply(envData, is.numeric)], method = "pearson")
+    envData <- envData %>% 
+      select(-maxC, -maxQ, -cumQ, -IDW_IDP2) 
+  }
+  
+  # format to accommodate vegan
+  envData <- as.data.frame(envData) # to data frame
+  rownames(envData) <- envData$stormMark # stormMark to row name
+  envData <- subset(envData, select = -c(stormMark)) # remove stormMark col
+  
+  # scale continuous env variables
+  varsCont <- envData[sapply(envData, is.numeric)] # isolate continuous vars
+  varsCont <- decostand(varsCont, method = 'standardize') # scale continuous vars
+  varsCat <- envData[sapply(envData, is.factor)] # isolate categorical vars
+  envData <- cbind(varsCont, varsCat) # new envData = scaled continuous + cat
+  
+  # return 
+  return(envData)
+  
+}
+
+# EXAMPLE
+# envData <- generate_env_data(1, "ClD_LACHAT")
+```
+
+
+workflow: NMDS, PCA, and PCA + fitting env. data
+
+* without predictors, RDA is the same as PCA
+* in vegan, giving the function rda() dataframe without predictors runs a PCA
+very simiar to princomp https://rpubs.com/brouwern/veganpca
+
+```{r ordination per analyte}
+
+analyte <- "ClD_LACHAT"
+
+hystData <- generate_hyst_data(analyte) # generate hysteresis data
+envData <- generate_env_data(1, analyte) # generate environmental data
+
+ibwNMDS <- metaMDS(hystData) # NMDS
+PCA <- rda(hystData, scale = TRUE) # PCA
+PCAenv <- envfit(PCA, envData, permutations = 999) # fit env data to PCA
+
+plot(PCA)
+plot(PCAenv)
+plot(PCAenv, p.max = 0.05)
+
+```
+
+
+workflow: generate RDA of hysteresis metrics HImean & FI constrained to
+environmental variables.
+
+```{r RDA per analyte}
+
+analyte <- "ClD_LACHAT"
+analyte <- "DOC_TOC"
+analyte <- "NO3D_LACHAT"
+analyte <- "PO4D_LACHAT"
+analyte <- "NH4_LACHAT"
+analyte <- "NaD_ICP"
+
+hystData <- generate_hyst_data(analyte) # generate hysteresis data
+envData <- generate_env_data(rmcolin = 1,
+                             chemSpecies = analyte) # generate environmental data
+# choose one:
+  envData <- envData[sapply(envData, is.numeric)] # continuous only
+  envData <- subset(envData, select = -reachLength) # remove reachLength factor
+
+# full RDA
+fullRDA <- rda(hystData ~ ., envData, scale = TRUE)
+anova(fullRDA)
+anova(fullRDA, by = "margin")
+anova(fullRDA, by = "axis")
+summary(fullRDA)[['cont']]
+plot(fullRDA)
+vif.cca(fullRDA)
+
+envfit(rda(hystData, scale = TRUE), envData) # check significance of individual vars
+
+# forward-backward selection
+m0 <- rda(hystData ~ 1, envData, scale = TRUE)
+finalRDA <- ordistep(m0, scope = formula(fullRDA))
+vif.cca(finalRDA)
+anova(finalRDA)
+anova(finalRDA, by = "margin")
+anova(finalRDA, by = "axis")
+plot(finalRDA)
+summary(finalRDA)[['cont']]
+
+# variance partitioning
+
+```
+
+
+generally:
+Better fits to reactive species, and particularly with continuous vars only, in fact the nitrate model is significant. Storm duration has influence. 
+
+chloride
+* overall p = 0.3
+* optimal model includes only reachLength
+
+sodium
+* overall 0.52
+* optimal model includes only reachLength
+
+nitrate:
+* overall 0.079; 0.037 with only continuous
+* storm duration signifant when including only continuous
+* optimal model includes only stormDuration, but antecedentDay was significant among margins (low variance for both, though)
+
+phophate
+* overall 0.334
+* final model includes only fromInterceptor
+
+ammonium
+* overall 0.061
+* final model includes only reachLength
+
+DOC
+* overall 0.062
+* optimal model includes only reachLength
+
+```{r RDA on each FI/HI }
+
+analytesSansTotals <- c("ClD_LACHAT",
+                        "DOC_TOC",
+                        "NO3D_LACHAT",
+                        "PO4D_LACHAT",
+                        "NH4_LACHAT",
+                        "NaD_ICP"
+                        # "NO3T", # missing values
+                        # "PO4T" # missing values
+)
+
+speciesDataFI <- hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  select(analyte, stormMark, FI) %>%
+  filter(analyte %in% analytes) %>% 
+  spread(key = analyte, value = FI) %>%
+  rename(rowname = stormMark) %>% 
+  column_to_rownames()
+
+fullRDA <- rda(speciesDataFI ~ ., envData, scale = TRUE)
+plot(fullRDA)
+# PCA <- rda(speciesDataFI, scale = TRUE) # PCA
+
+speciesDataHI <- hydroMetrics %>% 
+  inner_join(
+    hysteresisIndices,
+    by = c("stormMark", "analyte")
+  ) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  select(analyte, stormMark, HImean) %>%
+  filter(analyte %in% analytes) %>% 
+  spread(key = analyte, value = HImean) %>%
+  rename(rowname = stormMark) %>% 
+  column_to_rownames()
+
+fullRDA <- rda(speciesDataHI ~ ., envData, scale = TRUE)
+PCA <- rda(speciesDataHI, scale = TRUE) # PCA
+
+# all FI/HI require envData that is not specific to any single analyte
+envData <- hydroMetrics %>% 
+  select(stormMark, stormDuration, cumQ, maxQ, monsoon, antecedentDay) %>% 
+  mutate(monsoon = as.character(as.numeric(monsoon))) %>% 
+  group_by(stormMark) %>% 
+  summarise_all(max) %>% 
+  mutate(monsoon = as.factor(monsoon)) %>% 
+  inner_join(
+    contributingGauges,
+    by = c("stormMark")
+  ) %>% 
+  inner_join(
+    ibwPrecipitation %>% select(stormMark, IDW_IDP2),
+    by = c("stormMark")
+  )
+
+# format to accommodate vegan
+envData <- as.data.frame(envData) # to data frame
+rownames(envData) <- envData$stormMark # stormMark to row name
+envData <- subset(envData, select = -c(stormMark)) # remove stormMark col
+
+# scale continuous env variables
+varsCont <- envData[sapply(envData, is.numeric)] # isolate continuous vars
+varsCont <- decostand(varsCont, method = 'standardize') # scale continuous vars
+varsCat <- envData[sapply(envData, is.factor)] # isolate categorical vars
+envData <- cbind(varsCont, varsCat) # new envData = scaled continuous + cat
+
+# remove reachLength as factor (if desired)
+envData <- envDatad %>% select(-reachLength) 
+
+```
+
+
+```{r}
+
+hydroMetrics %>% 
+  filter(analyte == "ClD_LACHAT") %>% 
+  lm(cumQ ~ totalLoad, data = .)
+  
+fit <- lm(cumQ ~ totalLoad, data = hydroMetrics %>% filter(analyte == "ClD_LACHAT")) # Fit the model
+
+```
+
