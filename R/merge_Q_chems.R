@@ -4,7 +4,7 @@
 ## Purpose: To merge discharge data with chem data per site (Lake Margherite, Silverado, & Curry)
 ##    Inputs: 
 ##          Q data for Lake M and silverado from google drive (lakem_discharge.txt & silverado_discharge.txt)
-##          Q data for Curry from USGS gauge **TODO: NEED TO GET**
+##          Q data for Curry from USGS gauge - code provided for online download
 ##          Chems from google drive (624_runoff_chemistry.csv)
 ##    Outputs: 
 ##          file of compiled Q and chem data aligned by time per site ** might do file per site? **
@@ -91,18 +91,24 @@ silverado_Q <- silverado_Q %>%
   ungroup()
 
 
-chems <- chems %>%
+chems <- chems %>% filter(runoff_location %in% c("IBW", "SGC","LM")) %>% 
   mutate(datetime = round_date(runoff_datetime, "15 minutes"))
 
+chems$runoff_location[chems$runoff_location == "IBW"] <- "curry"
+chems$runoff_location[chems$runoff_location == "SGC"] <- "silverado"
+chems$runoff_location[chems$runoff_location == "LM"] <- "lakem"
+
+chems <- rename(chems, Site = runoff_location)
+
 chems_long <- chems %>%
-  group_by(runoff_location, datetime, analysis_name) %>%
+  group_by(Site, datetime, analysis_name) %>%
   summarise(
     mean_conc = mean(analysis_concentration, na.rm = TRUE),
     .groups = "drop"
   )
 
 chems_wide <- chems %>%
-  group_by(runoff_location, datetime, analysis_name) %>%
+  group_by(Site, datetime, analysis_name) %>%
   summarise(
     mean_conc = mean(analysis_concentration, na.rm = TRUE),
     .groups = "drop"
@@ -110,7 +116,7 @@ chems_wide <- chems %>%
   pivot_wider(
     names_from = analysis_name,
     values_from = mean_conc
-  ) #wide would be better to merge with q
+  ) #just another option
 
 
 ## Combine into one data frame, align by datetime
@@ -129,33 +135,73 @@ q_all <- left_join(q_all, lakem_Q, by = "datetime")
 q_all <- left_join(q_all, silverado_Q, by = "datetime")
 q_all <- left_join(q_all, curry_Q, by = "datetime")
 
-# interpolate discharge
+# interpolate discharge - commenting out and just reloading the interpolated file to save time
 
-q_all$datetime <- trimws(q_all$datetime)
-
-parsed <- suppressWarnings(
-  as.POSIXct(q_all$datetime,
-             format="%Y-%m-%d %H:%M:%S",
-             tz="America/Denver")
-)
-
-q_all <- q_all[!is.na(parsed), ]
-q_all$datetime <- parsed[!is.na(parsed)]
-
-q_xts <- xts(
-  q_all[, sapply(q_all, is.numeric)],
-  order.by = q_all$datetime
-)
-
-q_interp <- na_kalman(q_xts, model = "StructTS", type = "level")
-
-q_final <- data.frame(
-  datetime = index(q_interp),
-  coredata(q_interp)
-)
+# q_all$datetime <- as.POSIXct(q_all$datetime, tz = "America/Denver")
+# 
+# # Convert to xts
+# q_xts <- xts(
+#   q_all[, -1],
+#   order.by = q_all$datetime
+# )
+# 
+# # Interpolate column-wise (convert to numeric first)
+# q_interp_xts <- q_xts
+# 
+# for (i in 1:ncol(q_xts)) {
+#   
+#   x <- as.numeric(q_xts[, i])   
+#   
+#   q_interp_xts[, i] <- na_interpolation(
+#     x,
+#     option = "linear",
+#   )
+# }
+# 
+# # Convert back to dataframe
+# q_interp <- data.frame(
+#   datetime = index(q_interp_xts),
+#   coredata(q_interp_xts)
+# )
+# 
+# #check - should be 0 NAs
+# colSums(is.na(q_interp))
 
 # visual check - before vs after
-q_all %>% ggplot(aes(x = datetime, y = curry_cfs)) +
-  geom_point()
-q_final %>% ggplot(aes(x = datetime, y = curry_cfs)) +
-  geom_point()
+# q_all %>% ggplot(aes(x = datetime, y = silv_cfs)) +
+#   geom_point()
+# q_interp %>% ggplot(aes(x = datetime, y = silv_cfs)) +
+#   geom_point()
+
+#export
+#write.csv(q_interp, here("discharge_interpolated.csv"))
+
+q_interp <- read_csv(here("discharge_interpolated.csv")) %>% select(-'...1')
+
+#### MERGE CHEMS AND Q ####
+q_interp <- rename(q_interp, lakem = lakem_cfs)
+q_interp <- rename(q_interp, curry = curry_cfs)
+q_interp <- rename(q_interp, silverado = silv_cfs)
+q_interp <- q_interp %>% select(c(datetime, lakem, curry, silverado))
+
+#TODO: assign storm events - unless Stevan knows where that info already is
+
+q_long <- q_interp %>% pivot_longer(cols =c(lakem, curry, silverado), names_to = "Site", 
+                                    values_to = "q_cfs")
+
+q_chems <- left_join(q_long, chems_long, by = c("datetime", "Site"))
+
+#### PLOTTING ####
+#Plot time series for Q and for each solute
+
+(spread.pl <- q_chems %>% filter(Site == "curry") %>% 
+  ggplot(aes(x = q_cfs, y = mean_conc)) +
+  geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+  facet_wrap(~ analysis_name, scales = "free_y") +
+  labs(y = "Mean concentration", title="Curry analytes ") + 
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, size = 10),
+        strip.text = element_text(size = 15),
+        legend.text = element_text(size = 15))
+)
+
