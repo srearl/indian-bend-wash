@@ -135,7 +135,9 @@ q_all <- left_join(q_all, lakem_Q, by = "datetime")
 q_all <- left_join(q_all, silverado_Q, by = "datetime")
 q_all <- left_join(q_all, curry_Q, by = "datetime")
 
-# interpolate discharge - commenting out and just reloading the interpolated file to save time
+q_interp <- read_csv(here("discharge_interpolated.csv")) %>% select(-'...1')
+
+#### interpolate discharge - commenting out and just reloading the interpolated file to save time####
 
 # q_all$datetime <- as.POSIXct(q_all$datetime, tz = "America/Denver")
 # 
@@ -149,9 +151,9 @@ q_all <- left_join(q_all, curry_Q, by = "datetime")
 # q_interp_xts <- q_xts
 # 
 # for (i in 1:ncol(q_xts)) {
-#   
-#   x <- as.numeric(q_xts[, i])   
-#   
+# 
+#   x <- as.numeric(q_xts[, i])
+# 
 #   q_interp_xts[, i] <- na_interpolation(
 #     x,
 #     option = "linear",
@@ -176,7 +178,7 @@ q_all <- left_join(q_all, curry_Q, by = "datetime")
 #export
 #write.csv(q_interp, here("discharge_interpolated.csv"))
 
-q_interp <- read_csv(here("discharge_interpolated.csv")) %>% select(-'...1')
+
 
 #### MERGE CHEMS AND Q ####
 q_interp <- rename(q_interp, lakem = lakem_cfs)
@@ -189,19 +191,126 @@ q_interp <- q_interp %>% select(c(datetime, lakem, curry, silverado))
 q_long <- q_interp %>% pivot_longer(cols =c(lakem, curry, silverado), names_to = "Site", 
                                     values_to = "q_cfs")
 
-q_chems <- left_join(q_long, chems_long, by = c("datetime", "Site"))
+q_long$datetime     <- force_tz(q_long$datetime, "America/Phoenix")
+chems_long$datetime <- force_tz(chems_long$datetime, "America/Phoenix")
+
+q_chems <- inner_join(q_long, chems_long, by = c("datetime", "Site")) #inner join = where we have discharge AND chems
 
 #### PLOTTING ####
-#Plot time series for Q and for each solute
-
-(spread.pl <- q_chems %>% filter(Site == "curry") %>% 
-  ggplot(aes(x = q_cfs, y = mean_conc)) +
+#Plot time series for Q per site
+(curry.q.pl <- q_interp %>% #filter(Site == "curry") %>% 
+  ggplot(aes(x = datetime, y = curry)) +
   geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-  facet_wrap(~ analysis_name, scales = "free_y") +
-  labs(y = "Mean concentration", title="Curry analytes ") + 
+  #facet_wrap(~ analysis_name, scales = "free_y") +
+  labs(y = "Q (cubic square feet)", title="Curry discharge ") + 
   theme_minimal()+
   theme(axis.text.x = element_text(angle = 90, size = 10),
         strip.text = element_text(size = 15),
         legend.text = element_text(size = 15))
 )
 
+ggsave(curry.q.pl, path = "plots", file = "curry_discharge.jpeg", width = 10, height = 7.5, units = "in")
+
+(silv.q.pl <- q_interp %>% #filter(Site == "curry") %>% 
+    ggplot(aes(x = datetime, y = silverado)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    #facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "Q (cubic square feet)", title="Silverado discharge ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+
+ggsave(silv.q.pl, path = "plots", file = "silverado_discharge.jpeg", width = 10, height = 7.5, units = "in")
+
+(lakem.q.pl <- q_interp %>% #filter(Site == "curry") %>% 
+    ggplot(aes(x = datetime, y = lakem)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    #facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "Q (cubic square feet)", title="Lake Marg. discharge ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+
+ggsave(lakem.q.pl, path = "plots", file = "lake_marg_discharge.jpeg", width = 10, height = 7.5, units = "in")
+
+
+# plotting timeseries of chems per site
+
+(lakem.chems.pl <- chems_long %>% filter(Site == "lakem") %>% 
+    ggplot(aes(x = datetime, y = mean_conc)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "mean concentraiton", title="Lake Marg. Chems ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+
+ggsave(lakem.chems.pl, path = "plots", file = "lake_marg_chems.jpeg", width = 10, height = 7.5, units = "in")
+
+(curry.chems.pl <- chems_long %>% filter(Site == "curry") %>% 
+    ggplot(aes(x = datetime, y = mean_conc)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "mean concentration", title="Curry chems ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+
+ggsave(curry.chems.pl, path = "plots", file = "curry_chems.jpeg", width = 10, height = 7.5, units = "in")
+
+(silv.chems.pl <- chems_long %>% filter(Site == "silverado") %>% 
+    ggplot(aes(x = datetime, y = mean_conc)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "mean concentration", title="Silverado chems ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+
+ggsave(silv.chems.pl, path = "plots", file = "silverado_chems.jpeg", width = 10, height = 7.5, units = "in")
+
+(curry.cq.full.pl <- q_chems %>% filter(Site == "curry") %>% 
+    ggplot(aes(x = q_cfs, y = mean_conc)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "Mean concentration", title="Curry CQ full dataset ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+ggsave(curry.cq.full.pl, path = "plots", file = "curry_full_cq.jpeg", width = 10, height = 7.5, units = "in")
+
+(lakem.cq.full.pl <- q_chems %>% filter(Site == "lakem") %>% 
+    ggplot(aes(x = q_cfs, y = mean_conc)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "Mean concentration", title="Lake Marg. CQ full dataset ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+ggsave(lakem.cq.full.pl, path = "plots", file = "lakem_full_cq.jpeg", width = 10, height = 7.5, units = "in")
+
+(silv.cq.full.pl <- q_chems %>% filter(Site == "silverado") %>% 
+    ggplot(aes(x = q_cfs, y = mean_conc)) +
+    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
+    facet_wrap(~ analysis_name, scales = "free_y") +
+    labs(y = "Mean concentration", title="Silverado CQ full dataset ") + 
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90, size = 10),
+          strip.text = element_text(size = 15),
+          legend.text = element_text(size = 15))
+)
+ggsave(silv.cq.full.pl, path = "plots", file = "silv_full_cq.jpeg", width = 10, height = 7.5, units = "in")
