@@ -130,68 +130,54 @@ colSums(is.na(q_interp))#should be 0 NAs
 
 #original code for storm delineation is from ibw_flow_delin_interp.R
 
-assign_storm <- function(ibwQ){ #needs dataset with datetime and cfs columns
+assign_storm <- function(df, threshold = 0, dry_steps = 24){
   
-  # delinate distinct storms; loop needs to be run multiple times untl the row
-  # count does not change - surely there is a better way to do this
-  i <- 1
-  for (i in 1:(nrow(ibwQ)-1)) { #takes ~20mins
-    ifelse(ibwQ[i-1,]$cfs == 0 && ibwQ[i,]$cfs == 0 && ibwQ[i+1,]$cfs == 0, ibwQ <- ibwQ[-i,], ibwQ <- ibwQ)
-  }
+  df <- df %>% arrange(datetime)
   
-  # omit the first and last rows, which are not caught by the for loop
-  ibwQ <- ibwQ[-1,] # omit first row leftover from loop
-  ibwQ <- ibwQ[-nrow(ibwQ),] # omit last row leftover from loop
+  dry <- df$cfs <= threshold
   
-  # add a field for marking the start of storms
-  ibwQ <- ibwQ %>%
-    mutate(stormMark = NA)
+  # count consecutive dry steps
+  dry_count <- ave(dry, cumsum(!dry), FUN = seq_along)
+  dry_count[!dry] <- 0
   
-  # mark the start of all new storms with a 1
-  for (i in 2:nrow(ibwQ)) { #~15mins
-    if(ibwQ[i-1,]$cfs == 0 & ibwQ[i,]$cfs == 0) {
-      ibwQ[i,]$stormMark = 1
-    }
-  }
+  # storm starts when flow rises above threshold after sufficient dryness
+  storm_start <- df$cfs > threshold &
+    dplyr::lag(dry_count, default = 0) >= dry_steps
   
-  # create unique storm marks of sequential values
-  k <- 0
-  for (i in 1:nrow(ibwQ)) {
-    if(!is.na(ibwQ[i,]$stormMark)) {
-      ibwQ[i,]$stormMark = ibwQ[i,]$stormMark + k
-      k = k + 1
-    }
-  }
+  # handle dataset starting mid-storm
+  storm_start[1] <- df$cfs[1] > threshold
   
-  # populate all rows with corresponding stormMark (initialize first storm = 0)
-  ibwQ[1,]$stormMark <- 0 
-  ibwQ <- ibwQ  %>%
-    mutate(stormMark = zoo::na.locf(stormMark))
-  
- return(ibwQ)
+  df %>%
+    mutate(
+      storm_start = storm_start,
+      storm_id = cumsum(storm_start)
+    )
 }
 
 
 curry_interp <- q_interp %>% select(datetime, curry_cfs) %>% rename(cfs = curry_cfs)
 curry_q_storm <- assign_storm(curry_interp)
-curry_q_storm <- rename(curry_q_storm, curry_cfs = cfs, curry_storm = stormMark)
-curry_q_storm %>% filter(curry_cfs>100) %>% ggplot(aes(x = datetime, y = curry_cfs, color = as.factor(curry_storm)))+
+curry_q_storm <- rename(curry_q_storm, curry_cfs = cfs, curry_storm = storm_id,  curry_start = storm_start)
+curry_q_storm %>% ggplot(aes(x = datetime, y = cfs, color = as.factor(storm_id)))+
   geom_point() + labs(title= "Curry storms")
-
 
 
 silv_interp <- q_interp %>% select(datetime, silv_cfs) %>% rename(cfs = silv_cfs)
 silverado_Q_storm <- assign_storm(silv_interp)
-silverado_Q_storm <- rename(silverado_Q_storm, silv_cfs = cfs, silv_storm = stormMark)
+silverado_Q_storm <- rename(silverado_Q_storm, silv_cfs = cfs, silv_storm = storm_id, silv_start = storm_start)
 silverado_Q_storm %>% filter(silv_cfs>100, silv_cfs < 2000) %>% ggplot(aes(x = datetime, y = silv_cfs, color = as.factor(silv_storm)))+
   geom_point() + labs(title= "Silverado storms")
 
 
 lakem_interp <- q_interp %>% select(datetime, lakem_cfs) %>% rename(cfs = lakem_cfs)
 lakem_Q_storm <- assign_storm(lakem_interp)
-lakem_Q_storm <- rename(lakem_Q_storm, lakem_cfs = cfs, lakem_storm = stormMark)
+lakem_Q_storm <- rename(lakem_Q_storm, lakem_cfs = cfs, lakem_storm = storm_id,  lakem_start = storm_start)
 lakem_Q_storm %>% filter(lakem_cfs>100, lakem_cfs < 2000) %>% ggplot(aes(x = datetime, y = lakem_cfs, color = as.factor(lakem_storm)))+
   geom_point() + labs(title= "Lake Marg. storms")
 
-test <- left_join(q_all2, curry_q_storm,by = "datetime")
+q_all_storm <- full_join(curry_q_storm, silverado_Q_storm, by = "datetime")
+q_all_storm <- full_join(q_all_storm, lakem_Q_storm, by = "datetime")
 
+
+write.csv(q_all_storm, here("q_all_storms.csv"))#ignored file on git repo
+drive_put(here("q_all_storms.csv"), path = as_id("1YMfuWZDBvBRK_puKliPpHA3rahWtdcpR"))
