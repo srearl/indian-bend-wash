@@ -30,20 +30,20 @@ pg <- pg_prod
 
 # harvest data from USGS --------------------------------------------------
 
-ibwQ <- readNWISuv('09512162', '00060', startDate = "2008-01-01", endDate = Sys.Date(), tz = 'America/Phoenix') %>% 
+ibwQ_og <- readNWISuv('09512162', '00060', startDate = "2008-01-01", endDate = Sys.Date(), tz = 'America/Phoenix') %>% 
   rename(
     cfs = X_00060_00000,
     QCflag = X_00060_00000_cd
   ) %>% 
   filter(QCflag != "P") # filter provisisional data
 
-
+ibwQ <- ibwQ_og
 # storm delineation -------------------------------------------------------
 
 # delinate distinct storms; loop needs to be run multiple times untl the row
 # count does not change - surely there is a better way to do this
 i <- 1
-for (i in 1:nrow(ibwQ)-1) {
+for (i in 1:(nrow(ibwQ)-1)) {
   ifelse(ibwQ[i-1,]$cfs == 0 && ibwQ[i,]$cfs == 0 && ibwQ[i+1,]$cfs == 0, ibwQ <- ibwQ[-i,], ibwQ <- ibwQ)
 }
 
