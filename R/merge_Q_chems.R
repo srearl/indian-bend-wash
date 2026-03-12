@@ -19,12 +19,15 @@ library(dataRetrieval)
 library(zoo)
 library(xts)
 library(imputeTS)
+library(hms)
 
 
 #### IMPORT DATA ####
 
-## Q data from q_storms.R
-
+## Q data from q_storms.R - uploaded to drive
+q_all <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", "1JB1nucoswpaxaAWuAXmhILEfD8awWiZ_")) %>% select(-X)
+q_all[1,1] <- "2008-01-29 00:00:00"
+q_all$datetime <- as.POSIXct(q_all$datetime , format = "%Y-%m-%d %H:%M:%S", tz = "America/Phoenix")
 ## Chem data
 #drive_download("624_runoff_chemistry.csv")
 chems <- read_csv("624_runoff_chemistry.csv")
@@ -32,8 +35,6 @@ chem_meta <- read_csv("624_analytes.csv")
 
 
 #### DATA MUNGING ####
-
-
 
 chems$runoff_datetime <- mdy_hm(chems$runoff_datetime)
 chems <- chems %>% filter(runoff_location %in% c("IBW", "SGC","LM")) %>% 
@@ -74,198 +75,82 @@ chems_wide <- chems_meta %>%
   ) #just another option
 
 
-## Combine into one data frame, align by datetime
-
-# datetime range according to chems : 2008-01-29 09:21:00 - 2022-02-23 13:33:00
-# start_datetime <- as.POSIXct("2008-01-29 00:00:00", tz = "America/Phoenix")
-# end_datetime <- as.POSIXct("2022-02-24 00:00:00", tz = "America/Phoenix")
-# 
-# datetime_seq <- seq(from = start_datetime,
-#                     to   = end_datetime,
-#                     by   = "15 mins")
-# 
-# q_all <- data.frame(datetime = datetime_seq)
-# 
-# q_all <- left_join(q_all, lakem_Q, by = "datetime")
-# q_all <- left_join(q_all, silverado_Q, by = "datetime")
-# q_all <- left_join(q_all, curry_Q, by = "datetime")
-
-q_interp <- read_csv(here("discharge_interpolated.csv")) %>% select(-'...1')
-#
-#### interpolate discharge - commenting out and just reloading the interpolated file to save time####
-
-# q_all$datetime <- as.POSIXct(q_all$datetime, tz = "America/Denver")
-# 
-# # Convert to xts
-# q_xts <- xts(
-#   q_all[, -1],
-#   order.by = q_all$datetime
-# )
-# 
-# # Interpolate column-wise (convert to numeric first)
-# q_interp_xts <- q_xts
-# 
-# for (i in 1:ncol(q_xts)) {
-# 
-#   x <- as.numeric(q_xts[, i])
-# 
-#   q_interp_xts[, i] <- na_interpolation(
-#     x,
-#     option = "linear",
-#   )
-# }
-# 
-# # Convert back to dataframe
-# q_interp <- data.frame(
-#   datetime = index(q_interp_xts),
-#   coredata(q_interp_xts)
-# )
-# 
-# #check - should be 0 NAs
-# colSums(is.na(q_interp))
-
-# visual check - before vs after
-# q_all %>% ggplot(aes(x = datetime, y = silv_cfs)) +
-#   geom_point()
-# q_interp %>% ggplot(aes(x = datetime, y = silv_cfs)) +
-#   geom_point()
-
-#export
-#write.csv(q_interp, here("discharge_interpolated.csv"))
-
-
-
 #### MERGE CHEMS AND Q ####
-q_interp <- rename(q_interp, lakem = lakem_cfs)
-q_interp <- rename(q_interp, curry = curry_cfs)
-q_interp <- rename(q_interp, silverado = silv_cfs)
-q_interp <- q_interp %>% select(c(datetime, lakem, curry, silverado))
+# do by site to make it easier
+q_all$Time <- as.POSIXct(format(q_all$datetime,"2000-01-01 %H:%M:%S"))
+curry_q <- q_all %>% select(c(datetime, Time, curry_cfs, curry_start, curry_storm)) 
+names(curry_q) <- c("datetime", "Time", "cfs", "storm_start", "stormID")
+curry_q$Time <- as_hms(curry_q$Time)
+#TODO: get time from char to time
 
-#TODO: assign storm events - unless Stevan knows where that info already is
+silv_q <- q_all %>% select(c(datetime, Time,silv_cfs, silv_start, silv_storm)) 
+names(silv_q) <-  c("datetime", "Time", "cfs", "storm_start", "stormID")
 
-q_long <- q_interp %>% pivot_longer(cols =c(lakem, curry, silverado), names_to = "Site", 
-                                    values_to = "q_cfs")
+lakem_q <- q_all %>% select(c(datetime, Time,lakem_cfs, lakem_start, lakem_storm)) 
+names(lakem_q) <-  c("datetime", "Time", "cfs", "storm_start", "stormID")
 
-q_long$datetime     <- force_tz(q_long$datetime, "America/Phoenix")
-chems_long$datetime <- force_tz(chems_long$datetime, "America/Phoenix")
-
-q_chems <- inner_join(q_long, chems_long, by = c("datetime", "Site")) #inner join = where we have discharge AND chems
+curry_cq <- left_join(curry_q, chems_long %>% filter(Site == "curry"), by = "datetime")
+silv_cq <- left_join(silv_q, chems_long %>% filter(Site == "silverado"), by = "datetime")
+lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem"), by = "datetime")
 
 #### PLOTTING ####
 #Plot time series for Q per site
-(curry.q.pl <- q_interp %>% #filter(Site == "curry") %>% 
-  ggplot(aes(x = datetime, y = curry)) +
-  geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-  #facet_wrap(~ analysis_name, scales = "free_y") +
-  labs(y = "Q (cubic square feet)", title="Curry discharge ") + 
-  theme_minimal()+
-  theme(axis.text.x = element_text(angle = 90, size = 10),
-        strip.text = element_text(size = 15),
-        legend.text = element_text(size = 15))
-)
-
-ggsave(curry.q.pl, path = "plots", file = "curry_discharge.jpeg", width = 10, height = 7.5, units = "in")
-
-(silv.q.pl <- q_interp %>% #filter(Site == "curry") %>% 
-    ggplot(aes(x = datetime, y = silverado)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    #facet_wrap(~ analysis_name, scales = "free_y") +
-    labs(y = "Q (cubic square feet)", title="Silverado discharge ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-
-ggsave(silv.q.pl, path = "plots", file = "silverado_discharge.jpeg", width = 10, height = 7.5, units = "in")
-
-(lakem.q.pl <- q_interp %>% #filter(Site == "curry") %>% 
-    ggplot(aes(x = datetime, y = lakem)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    #facet_wrap(~ analysis_name, scales = "free_y") +
-    labs(y = "Q (cubic square feet)", title="Lake Marg. discharge ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-
-ggsave(lakem.q.pl, path = "plots", file = "lake_marg_discharge.jpeg", width = 10, height = 7.5, units = "in")
+curry_cq %>% filter(analyte == "TDN") %>% 
+  ggplot(aes(x = cfs, y = mean_conc)) +
+  geom_point(aes(colour = Time), position = position_jitter(width = 0.15), size = 1.5) +
+  facet_wrap(~stormID, scales = "free")+ 
+  scale_color_gradient(low = "white", high = "blue") +
+  labs(y = "Q (cubic square feet)", title="Curry NO3 CQ per storm event", x = "mg N/L") 
 
 
-# plotting timeseries of chems per site
+## attempting to make function for this - from sycburns
+plot_c_q_norm <- function(cq_data, analyte_col) {#curry_cq = cq_data, "NO3" = analyte_col
+  curr_site <- curry_cq %>% 
+    filter(analyte == "NO3") %>% 
+    filter( !is.na(cfs)) 
+  
+  if (nrow(curr_site) == 0) {
+    message(paste("Skipping", site, "- no valid data"))
+    return(NULL)
+  }
+  
+  if (!"Time_hours" %in% names(curr_site)) {
+    curr_site <- curr_site %>%
+     # group_by(stormID) %>% 
+      mutate(Time_hours = as.numeric(difftime(datetime, min(datetime), units = "hours")))
+  }
+  # # Remove top 10% of cfs values per Event_Date (storm)
+  # curr_site <- curr_site %>%
+  #   group_by(Event_Date) %>%
+  #   filter(cfs <= quantile(cfs, 0.9, na.rm = TRUE)) %>%
+  #   ungroup()
+  
+  #Normalize within each Event_Date (storm)
+  curr_site <- curr_site %>%
+    group_by(stormID) %>%
+    mutate(
+      Level_norm = (cfs - min(cfs, na.rm = TRUE)) /
+        (max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE)),
+      Chem_norm = (.data$mean_conc - min(.data$mean_conc, na.rm = TRUE)) /
+        (max(.data$mean_conc, na.rm = TRUE) - min(.data$mean_conc, na.rm = TRUE)),
+      Time_norm = (Time_hours - min(Time_hours, na.rm = TRUE)) /
+        (max(Time_hours, na.rm = TRUE) - min(Time_hours, na.rm = TRUE))
+    ) %>%
+    ungroup() %>%
+    filter(!is.na(.data$mean_conc), !is.na(cfs)) 
+  
+  #Plot normalized C–Q relationship (per storm)
+  p <- curr_site %>% ggplot( aes(x = Level_norm, y = Chem_norm)) + 
+    geom_point(aes(color = Time_norm)) + 
+    facet_wrap(~stormID, scales = "free") + 
+    scale_color_gradientn(colours = rainbow(7)) + 
+    labs( title = paste("Curry", "-", "NO3"), 
+          x = "Normalized Stage (0–1)", 
+          y = paste("Normalized", "NO3", "(0–1)"), 
+          color = "Time (within storm)" ) + 
+    theme_minimal() 
+  
+  return(p)
+}## TODO: remove graphs in facet with nothing on them!
 
-(lakem.chems.pl <- chems_long %>% filter(Site == "lakem") %>% 
-    ggplot(aes(x = datetime, y = mean_conc)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    facet_wrap(~ analysis_name, scales = "free_y") +
-    labs(y = "mean concentraiton", title="Lake Marg. Chems ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-
-ggsave(lakem.chems.pl, path = "plots", file = "lake_marg_chems.jpeg", width = 10, height = 7.5, units = "in")
-
-(curry.chems.pl <- chems_long %>% filter(Site == "curry") %>% 
-    ggplot(aes(x = datetime, y = mean_conc)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    facet_wrap(~ analysis_name, scales = "free_y") +
-    labs(y = "mean concentration", title="Curry chems ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-
-ggsave(curry.chems.pl, path = "plots", file = "curry_chems.jpeg", width = 10, height = 7.5, units = "in")
-
-(silv.chems.pl <- chems_long %>% filter(Site == "silverado") %>% 
-    ggplot(aes(x = datetime, y = mean_conc)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    facet_wrap(~ analysis_name, scales = "free_y") +
-    labs(y = "mean concentration", title="Silverado chems ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-
-ggsave(silv.chems.pl, path = "plots", file = "silverado_chems.jpeg", width = 10, height = 7.5, units = "in")
-
-(curry.cq.full.pl <- q_chems %>% filter(Site == "curry") %>% 
-    ggplot(aes(x = q_cfs, y = mean_conc)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    facet_wrap(~ analyte, scales = "free_y") +
-    labs(y = "Mean concentration", title="Curry CQ full dataset ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15)) 
-)
-ggsave(curry.cq.full.pl, path = "plots", file = "curry_full_cq.jpeg", width = 10, height = 7.5, units = "in")
-
-(lakem.cq.full.pl <- q_chems %>% filter(Site == "lakem") %>% 
-    ggplot(aes(x = q_cfs, y = mean_conc)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    facet_wrap(~ analyte, scales = "free_y") +
-    labs(y = "Mean concentration", title="Lake Marg. CQ full dataset ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-ggsave(lakem.cq.full.pl, path = "plots", file = "lakem_full_cq.jpeg", width = 10, height = 7.5, units = "in")
-
-(silv.cq.full.pl <- q_chems %>% filter(Site == "silverado") %>% 
-    ggplot(aes(x = q_cfs, y = mean_conc)) +
-    geom_point(position = position_jitter(width = 0.15), size = 1.5) +
-    facet_wrap(~ analyte, scales = "free_y") +
-    labs(y = "Mean concentration", title="Silverado CQ full dataset ") + 
-    theme_minimal()+
-    theme(axis.text.x = element_text(angle = 90, size = 10),
-          strip.text = element_text(size = 15),
-          legend.text = element_text(size = 15))
-)
-ggsave(silv.cq.full.pl, path = "plots", file = "silv_full_cq.jpeg", width = 10, height = 7.5, units = "in")
+(p <- plot_c_q_norm(curry_cq, "NO3"))
