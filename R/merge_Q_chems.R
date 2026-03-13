@@ -36,7 +36,6 @@ chem_meta <- read_csv("624_analytes.csv")
 
 #### DATA MUNGING ####
 
-chems$runoff_datetime <- mdy_hm(chems$runoff_datetime)
 chems <- chems %>% filter(runoff_location %in% c("IBW", "SGC","LM")) %>% 
   mutate(datetime = round_date(runoff_datetime, "15 minutes"))
 
@@ -90,23 +89,18 @@ lakem_q <- q_all %>% select(c(datetime, Time,lakem_cfs, lakem_start, lakem_storm
 names(lakem_q) <-  c("datetime", "Time", "cfs", "storm_start", "stormID")
 
 curry_cq <- left_join(curry_q, chems_long %>% filter(Site == "curry"), by = "datetime")
+curry_cq$Site <- "Curry"
 silv_cq <- left_join(silv_q, chems_long %>% filter(Site == "silverado"), by = "datetime")
-lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem"), by = "datetime")
+silv_cq$Site <- "Silverado"
+lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem", analyte != "Ni", analyte != "Pb"), by = "datetime")
+lakem_cq$Site <- "Lake Marg"
 
 #### PLOTTING ####
-#Plot time series for Q per site
-curry_cq %>% filter(analyte == "TDN") %>% 
-  ggplot(aes(x = cfs, y = mean_conc)) +
-  geom_point(aes(colour = Time), position = position_jitter(width = 0.15), size = 1.5) +
-  facet_wrap(~stormID, scales = "free")+ 
-  scale_color_gradient(low = "white", high = "blue") +
-  labs(y = "Q (cubic square feet)", title="Curry NO3 CQ per storm event", x = "mg N/L") 
-
 
 ## attempting to make function for this - from sycburns
 plot_c_q_norm <- function(cq_data, analyte_col) {#curry_cq = cq_data, "NO3" = analyte_col
-  curr_site <- curry_cq %>% 
-    filter(analyte == "NO3") %>% 
+  curr_site <- cq_data %>% 
+    filter(analyte == analyte_col) %>% 
     filter( !is.na(cfs)) 
   
   if (nrow(curr_site) == 0) {
@@ -140,17 +134,45 @@ plot_c_q_norm <- function(cq_data, analyte_col) {#curry_cq = cq_data, "NO3" = an
     filter(!is.na(.data$mean_conc), !is.na(cfs)) 
   
   #Plot normalized C–Q relationship (per storm)
-  p <- curr_site %>% ggplot( aes(x = Level_norm, y = Chem_norm)) + 
+  p <- curr_site %>% filter(!is.na(curr_site$Level_norm), !is.na(curr_site$Chem_norm)) %>% ggplot(aes(x = Level_norm, y = Chem_norm)) + 
     geom_point(aes(color = Time_norm)) + 
     facet_wrap(~stormID, scales = "free") + 
     scale_color_gradientn(colours = rainbow(7)) + 
-    labs( title = paste("Curry", "-", "NO3"), 
+    labs( title = paste(curr_site$Site[1], "-", analyte_col), 
           x = "Normalized Stage (0–1)", 
-          y = paste("Normalized", "NO3", "(0–1)"), 
+          y = paste("Normalized", analyte_col, "(0–1)"), 
           color = "Time (within storm)" ) + 
     theme_minimal() 
   
   return(p)
-}## TODO: remove graphs in facet with nothing on them!
+}
 
-(p <- plot_c_q_norm(curry_cq, "NO3"))
+
+# Loop through analytes per site to plot and save
+setwd(here("plots", "cq"))
+
+chem_names <- unique(curry_cq$analyte)
+for(analyte in chem_names){
+  if(!is.na(analyte)){
+   p <- plot_c_q_norm(curry_cq, analyte)
+   ggsave(p, file=paste("Curry_", analyte, ".jpeg"), width = 20, height = 10, units = "in")
+  }
+}
+
+chem_names <- unique(silv_cq$analyte)
+for(analyte in chem_names){
+  if(!is.na(analyte)){
+    p <- plot_c_q_norm(silv_cq, analyte)
+    ggsave(p, file=paste("Silverado_", analyte, ".jpeg"), width = 20, height = 10, units = "in")
+  }
+}
+
+chem_names <- unique(lakem_cq$analyte)
+for(analyte in chem_names){
+  if(!is.na(analyte)){
+    p <- plot_c_q_norm(lakem_cq, analyte)
+    ggsave(p, file=paste("LakeM_", analyte, ".jpeg"), width = 20, height = 10, units = "in")
+  }
+}
+
+
