@@ -36,8 +36,5 @@ vignettes/*.pdf
 # text files
 *.txt
 
-624_runoff_chemistry.csv
-
-discharge_interpolated.csv
-
-q_all_storms.csv
+# .csv files
+*.csv

@@ -29,7 +29,7 @@ q_all <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", "1
 q_all[1,1] <- "2008-01-29 00:00:00"
 q_all$datetime <- as.POSIXct(q_all$datetime , format = "%Y-%m-%d %H:%M:%S", tz = "America/Phoenix")
 ## Chem data
-#drive_download("624_runoff_chemistry.csv")
+#drive_download("624_runoff_chemistry.csv", overwrite = TRUE)
 chems <- read_csv("624_runoff_chemistry.csv")
 chem_meta <- read_csv("624_analytes.csv")
 
@@ -80,7 +80,6 @@ q_all$Time <- as.POSIXct(format(q_all$datetime,"2000-01-01 %H:%M:%S"))
 curry_q <- q_all %>% select(c(datetime, Time, curry_cfs, curry_start, curry_storm)) 
 names(curry_q) <- c("datetime", "Time", "cfs", "storm_start", "stormID")
 curry_q$Time <- as_hms(curry_q$Time)
-#TODO: get time from char to time
 
 silv_q <- q_all %>% select(c(datetime, Time,silv_cfs, silv_start, silv_storm)) 
 names(silv_q) <-  c("datetime", "Time", "cfs", "storm_start", "stormID")
@@ -94,6 +93,16 @@ silv_cq <- left_join(silv_q, chems_long %>% filter(Site == "silverado"), by = "d
 silv_cq$Site <- "Silverado"
 lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem", analyte != "Ni", analyte != "Pb"), by = "datetime")
 lakem_cq$Site <- "Lake Marg"
+
+write.csv(curry_cq, here("curry_cq.csv"))
+drive_put(here("curry_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+
+write.csv(silv_cq, here("silv_cq.csv"))
+drive_put(here("silv_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+
+write.csv(lakem_cq, here("lakem_cq.csv"))
+drive_put(here("lakem_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+
 
 #### PLOTTING ####
 
