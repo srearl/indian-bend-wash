@@ -38,3 +38,5 @@ vignettes/*.pdf
 
 # .csv files
 *.csv
+
+*.rds

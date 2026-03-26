@@ -1,0 +1,67 @@
+---
+title: "plotting_hysteresis"
+output: html_document
+date: "2026-03-26"
+---
+
+Follows hysteresis_calc_2.R, aims to plot hysteresis index with confidence intervals
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, include=FALSE}
+rm(list=ls())
+library(tidyverse)
+library(ggplot2)
+library(here)
+library(purrr)
+```
+
+Load data
+
+```{r load data}
+curry_hysteresis <- readRDS(here("curry_hysteresis.rds"))
+silv_hysteresis <- readRDS(here("silv_hysteresis.rds"))
+lakem_hysteresis <- readRDS(here("lakem_hysteresis.rds"))
+
+hysteresis_df <- read.csv(here("hysteresis_summary.csv"))
+hi_intervals_df <- read.csv(here("hysteresis_intervals.csv"))
+```
+
+
+## Plotting
+
+```{r echo=FALSE}
+ggplot(hysteresis_df, aes(x = HI_mean, fill = analyte)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  facet_wrap(~ site, scales = "free_y") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Distribution of Mean HI by Analyte",
+       x = "Mean HI", y = "Count") +
+  theme_bw()
+
+ggplot(hysteresis_df, aes(x = peak_Q, y = HI_mean, color = analyte)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_wrap(~ analyte, scales = "free") +
+  labs(title = "Peak Discharge vs Mean HI by Analyte",
+       x = "Peak Q (CFS)", y = "Mean HI") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+hi_intervals_df <- hi_intervals_df %>%
+  mutate(interval_pct = as.numeric(gsub("Interpolated HI for |% discharge", "", interval)))
+
+ggplot(hi_intervals_df, aes(x = interval_pct, y = HI_value, group = stormID)) +
+  geom_line(alpha = 0.3, color = "steelblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  facet_wrap(~ analyte, scales = "free_y") +
+  labs(title = "HI Value Across Discharge Intervals by Analyte",
+       x = "Discharge Interval (%)", y = "HI Value") +
+  theme_bw()
+
+```
+
