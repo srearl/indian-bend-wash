@@ -1,4 +1,4 @@
-## Another script/way to calculate hysteresis based on python function
+## Another script/way to calculate hysteresis based on python function, also calculates BETA 
 ## takes processed cq data from merge_Q_chems.R
 
 rm(list=ls())
@@ -8,6 +8,7 @@ library(tidyverse)
 library(reticulate)
 library(utils)
 library(purrr)
+library(parameters)
 
 #### IMPORT DATA ####
 # from google drive - originally from merge_Q_chems.R
@@ -214,11 +215,76 @@ hysteresis_df    <- bind_rows(curry_dfs$summary,   silv_dfs$summary,   lakem_dfs
 hi_intervals_df  <- bind_rows(curry_dfs$intervals, silv_dfs$intervals, lakem_dfs$intervals)
 
 # export
-saveRDS(curry_hysteresis, here("curry_hysteresis.rds"))
-saveRDS(silv_hysteresis,  here("silv_hysteresis.rds"))
-saveRDS(lakem_hysteresis, here("lakem_hysteresis.rds"))
-write.csv(hysteresis_df,   here("hysteresis_summary.csv"),   row.names = FALSE)
-write.csv(hi_intervals_df, here("hysteresis_intervals.csv"), row.names = FALSE)
+saveRDS(curry_hysteresis, here("Data/curry_hysteresis.rds"))
+saveRDS(silv_hysteresis,  here("Data/silv_hysteresis.rds"))
+saveRDS(lakem_hysteresis, here("Data/lakem_hysteresis.rds"))
+write.csv(hysteresis_df,   here("Data/hysteresis_summary.csv"),   row.names = FALSE)
+write.csv(hi_intervals_df, here("Data/hysteresis_intervals.csv"), row.names = FALSE)
 
-drive_put(here("hysteresis_summary.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
-drive_put(here("hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+drive_put(here("Data/hysteresis_summary.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+drive_put(here("Data/hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+
+
+#### BETA ####
+# based on code from Jake C. Storms_clean_repo, 06_BETA.R
+calculate_beta <- function(cq_data, site_name) {
+  
+  #normalize Q and concentration per storm
+  normalized <- cq_data %>%
+    filter(!is.na(cfs), !is.na(mean_conc), !is.na(analyte)) %>%
+    group_by(stormID, analyte) %>%
+    mutate(
+      Q_range = max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE),
+      C_range = max(mean_conc, na.rm = TRUE) - min(mean_conc, na.rm = TRUE)
+    ) %>%
+    filter(Q_range > 0, C_range > 0) %>%  # drop flat Q or C groups
+    mutate(
+      Q.norm     = (cfs - min(cfs, na.rm = TRUE)) / Q_range,
+      C.norm     = (mean_conc - min(mean_conc, na.rm = TRUE)) / C_range,
+      Q.norm.log = log(Q.norm),
+      C.norm.log = log(C.norm),
+      limb       = ifelse(datetime < datetime[which.max(Q.norm)], "rising", "falling")
+    ) %>%
+    select(-Q_range, -C_range) %>%
+    ungroup()
+  
+  #keep only rising limb and finite values
+  rising <- normalized %>%
+    filter(limb == "rising",
+           is.finite(Q.norm.log),
+           is.finite(C.norm.log))
+  
+  #fit linear model per storm per analyte, extract beta + CI
+  beta_df <- rising %>%
+    group_by(stormID, analyte) %>%
+    filter(n() >= 3) %>%
+    group_modify(~ {
+      mod <- lm(C.norm.log ~ Q.norm.log, data = .x)
+      parameters::model_parameters(mod)
+    }) %>%
+    ungroup() %>%
+    filter(Parameter != "(Intercept)") %>%
+    rename(beta       = Coefficient,
+           beta_se    = SE,
+           beta_ci_lo = CI_low,
+           beta_ci_hi = CI_high) %>%
+    mutate(site = site_name)
+  
+  # remove outliers
+  beta_df <- beta_df %>%
+    mutate(beta = ifelse(abs(beta) > 20, NA, beta))
+  
+  return(beta_df)
+}
+
+
+curry_beta <- calculate_beta(curry_cq, "Curry")
+silv_beta  <- calculate_beta(silv_cq,  "Silverado")
+lakem_beta <- calculate_beta(lakem_cq, "Lake Margarita")
+
+
+beta_all <- bind_rows(curry_beta, silv_beta, lakem_beta)
+
+
+write.csv(beta_all, here("Data", "beta_all_sites.csv"), row.names = FALSE)
+drive_put(here("Data/beta_all_sites.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 

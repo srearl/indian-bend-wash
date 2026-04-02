@@ -21,11 +21,11 @@ library(imputeTS)
 
 ## Q data
 #drive_download("lakem_discharge.txt")
-lakem_Q <- read.table(here("lakem_discharge.txt"), skip = 7)
+lakem_Q <- read.table(here("Data/lakem_discharge.txt"), skip = 7)
 names(lakem_Q) <- c("Date", "Time", "feet", "cfs")
 
 #drive_download("silverado_discharge.txt")
-silverado_Q <- read.table(here("silverado_discharge.txt"), skip = 7)
+silverado_Q <- read.table(here("Data/silverado_discharge.txt"), skip = 7)
 names(silverado_Q) <- c("Date", "Time", "feet", "cfs")
 
 ## Q from USGS for curry
@@ -179,5 +179,5 @@ q_all_storm <- full_join(curry_q_storm, silverado_Q_storm, by = "datetime")
 q_all_storm <- full_join(q_all_storm, lakem_Q_storm, by = "datetime")
 
 
-write.csv(q_all_storm, here("q_all_storms.csv"))#ignored file on git repo
-drive_put(here("q_all_storms.csv"), path = as_id("1YMfuWZDBvBRK_puKliPpHA3rahWtdcpR"))
+write.csv(q_all_storm, here("Data/q_all_storms.csv"))#ignored file on git repo
+drive_put(here("Data/q_all_storms.csv"), path = as_id("1YMfuWZDBvBRK_puKliPpHA3rahWtdcpR"))

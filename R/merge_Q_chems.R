@@ -30,8 +30,8 @@ q_all[1,1] <- "2008-01-29 00:00:00"
 q_all$datetime <- as.POSIXct(q_all$datetime , format = "%Y-%m-%d %H:%M:%S", tz = "America/Phoenix")
 ## Chem data
 #drive_download("624_runoff_chemistry.csv", overwrite = TRUE)
-chems <- read_csv("624_runoff_chemistry.csv")
-chem_meta <- read_csv("624_analytes.csv")
+chems <- read_csv("Data/624_runoff_chemistry.csv")
+chem_meta <- read_csv("Data/624_analytes.csv")
 
 
 #### DATA MUNGING ####
@@ -94,14 +94,14 @@ silv_cq$Site <- "Silverado"
 lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem", analyte != "Ni", analyte != "Pb"), by = "datetime")
 lakem_cq$Site <- "Lake Marg"
 
-write.csv(curry_cq, here("curry_cq.csv"))
-drive_put(here("curry_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+write.csv(curry_cq, here("Data/curry_cq.csv"))
+drive_put(here("Data/curry_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 
-write.csv(silv_cq, here("silv_cq.csv"))
-drive_put(here("silv_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+write.csv(silv_cq, here("Data/silv_cq.csv"))
+drive_put(here("Data/silv_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 
-write.csv(lakem_cq, here("lakem_cq.csv"))
-drive_put(here("lakem_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+write.csv(lakem_cq, here("Data/lakem_cq.csv"))
+drive_put(here("Data/lakem_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 
 
 #### PLOTTING ####
