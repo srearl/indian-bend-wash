@@ -3,11 +3,11 @@
 ## Initialize Date: Feb 12 2026
 ## Purpose: To merge discharge data with chem data per site (Lake Margherite, Silverado, & Curry)
 ##    Inputs: 
-##          Q data for Lake M and silverado from google drive (lakem_discharge.txt & silverado_discharge.txt)
-##          Q data for Curry from USGS gauge - code provided for online download
+##          Discharge data, interpolated and storms assigned, from q_storms.R
 ##          Chems from google drive (624_runoff_chemistry.csv)
 ##    Outputs: 
-##          file of compiled Q and chem data aligned by time per site ** might do file per site? **
+##          file of compiled Q and chem data aligned by time per site 
+##          CQ plots per storm per analyte per site
 
 #### LOAD LIBRARIES ####
 rm(list=ls())
