@@ -30,7 +30,7 @@ lakem_cq <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",
   mutate(datetime = as.POSIXct(datetime, format = "%Y-%m-%d %H:%M:%S"))
 lakem_cq[1,1] <- "2008-01-29 00:00:00"
 
-#### Setting up python usage in R ####
+#### PYTHON SETUP ####
 #virtualenv_create("r-reticulate")
 use_virtualenv("r-reticulate", required = TRUE)
 if (!py_module_available("pandas")) {
