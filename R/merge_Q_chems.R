@@ -66,6 +66,7 @@ chems_wide <- chems_meta %>%
   group_by(Site, datetime, analysis_name) %>%
   summarise(
     mean_conc = mean(analysis_concentration, na.rm = TRUE),
+    standard_dev = sd(analysis_concentration, na.rm = TRUE), 
     .groups = "drop"
   ) %>%
   pivot_wider(
@@ -94,6 +95,12 @@ silv_cq$Site <- "Silverado"
 lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem", analyte != "Ni", analyte != "Pb"), by = "datetime")
 lakem_cq$Site <- "Lake Marg"
 
+
+## TODO: remove outliers, concentration > 3*SD for the storm
+test <- curry_cq %>% group_by(stormID, analyte) %>% 
+  mutate(outlier = ifelse(mean_conc > 3*standard_dev, "yes", "no"))
+
+## export
 write.csv(curry_cq, here("Data/curry_cq.csv"))
 drive_put(here("Data/curry_cq.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 

@@ -9,6 +9,19 @@ date: "2026-03-26"
 
 Aims to plot hysteresis per analyte per storm per site
 
+## Metrics
+
+
+
+*Hysteresis index* is calculated as the median (+/- 95% CI) across 2% intervals of discharge.
++HI = clockwise (source limitation or nearstream source)
+-HI = counterclockwise (transport limitation or distal source)
+
+
+
+*Beta* is the slope of the CQ relationship on the rising limb of the storm
+CIs on beta are bootstrapped 95% CI
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=8) 
 ```
