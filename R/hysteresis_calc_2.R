@@ -9,6 +9,7 @@ library(reticulate)
 library(utils)
 library(purrr)
 library(parameters)
+library(boot)
 
 #### IMPORT DATA ####
 # from google drive - originally from merge_Q_chems.R
@@ -229,7 +230,7 @@ drive_put(here("Data/hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsS
 # based on code from Jake C. Storms_clean_repo, 06_BETA.R
 calculate_beta <- function(cq_data, site_name) {
   
-  #normalize Q and concentration per storm
+  # normalize Q and concentration per storm
   normalized <- cq_data %>%
     filter(!is.na(cfs), !is.na(mean_conc), !is.na(analyte)) %>%
     group_by(stormID, analyte) %>%
@@ -237,7 +238,7 @@ calculate_beta <- function(cq_data, site_name) {
       Q_range = max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE),
       C_range = max(mean_conc, na.rm = TRUE) - min(mean_conc, na.rm = TRUE)
     ) %>%
-    filter(Q_range > 0, C_range > 0) %>%  # drop flat Q or C groups
+    filter(Q_range > 0, C_range > 0) %>%
     mutate(
       Q.norm     = (cfs - min(cfs, na.rm = TRUE)) / Q_range,
       C.norm     = (mean_conc - min(mean_conc, na.rm = TRUE)) / C_range,
@@ -248,33 +249,63 @@ calculate_beta <- function(cq_data, site_name) {
     select(-Q_range, -C_range) %>%
     ungroup()
   
-  #keep only rising limb and finite values
+  # keep only rising limb and finite values
   rising <- normalized %>%
     filter(limb == "rising",
            is.finite(Q.norm.log),
            is.finite(C.norm.log))
   
-  #fit linear model per storm per analyte, extract beta + CI
+  #bootstrap beta per storm per analyte
   beta_df <- rising %>%
     group_by(stormID, analyte) %>%
-    filter(n() >= 3) %>%
+    filter(n() >= 3) %>% #removes storms/analytes
     group_modify(~ {
+      
+      # point estimate from lm
       mod <- lm(C.norm.log ~ Q.norm.log, data = .x)
-      parameters::model_parameters(mod)
+      beta_est <- coef(mod)[["Q.norm.log"]]
+      
+      # bootstrap the slope by resampling data points within this storm
+      boot_slope <- function(data, ind) {
+        d <- data[ind, ]
+        coef(lm(C.norm.log ~ Q.norm.log, data = d))[["Q.norm.log"]]
+      }
+      
+      bt <- boot::boot(.x, boot_slope, R = 1000)
+      ci <- boot::boot.ci(bt, conf = 0.95, type = "perc")
+      
+      tibble(
+        beta       = beta_est,
+        boot_ci_lo = ci$percent[4],  # lower 95%
+        boot_ci_hi = ci$percent[5]   # upper 95%
+      )
     }) %>%
     ungroup() %>%
-    filter(Parameter != "(Intercept)") %>%
-    rename(beta       = Coefficient,
-           beta_se    = SE,
-           beta_ci_lo = CI_low,
-           beta_ci_hi = CI_high) %>%
-    mutate(site = site_name)
+    mutate(
+      site      = site_name,
+      ci_width  = boot_ci_hi - boot_ci_lo,
+      outlier   = abs(beta) > 20 | ci_width > 10            # TRUE/FALSE flag for outliers
+    )
   
-  # remove outliers
-  beta_df <- beta_df %>%
-    mutate(beta = ifelse(abs(beta) > 20, NA, beta))
+  # #bootstrapped median beta + CI across storms, per analyte - optional
+  # beta_boot_summary <- beta_df %>%
+  #   filter(!is.na(beta)) %>%
+  #   group_by(analyte) %>%
+  #   group_modify(~ {
+  #     if (nrow(.x) < 3) {
+  #       tibble(median_beta = NA, boot_ci_lo = NA, boot_ci_hi = NA)
+  #     } else {
+  #       median_cl_boot(.x$beta)
+  #     }
+  #   }) %>%
+  #   ungroup() %>%
+  #   mutate(site = site_name)
   
-  return(beta_df)
+  # list(
+  #   per_storm = beta_df,
+  #   summary   = beta_boot_summary
+  # )
+  return(beta_df)#we don't need boot_summary, that just summarizes across storms per analyte, not per storm
 }
 
 
@@ -288,3 +319,4 @@ beta_all <- bind_rows(curry_beta, silv_beta, lakem_beta)
 
 write.csv(beta_all, here("Data", "beta_all_sites.csv"), row.names = FALSE)
 drive_put(here("Data/beta_all_sites.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+

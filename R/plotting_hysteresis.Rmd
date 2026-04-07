@@ -1,9 +1,10 @@
 ---
-title: "plotting_hysteresis"
+title: "Hysteresis Indicies and Beta of IBW sites: Curry, Silverado, and Lake Margarita"
 output:
   pdf_document: default
   html_document:
     df_print: paged
+indent: true
 date: "2026-03-26"
 ---
 
@@ -13,14 +14,19 @@ Aims to plot hysteresis per analyte per storm per site
 
 
 
-*Hysteresis index* is calculated as the median (+/- 95% CI) across 2% intervals of discharge.
-+HI = clockwise (source limitation or nearstream source)
--HI = counterclockwise (transport limitation or distal source)
+* *Hysteresis index* is calculated as the median (+/- 95% CI) across 2% intervals of discharge.
+
+
+    +HI = clockwise (source limitation or nearstream source)
+
+
+    -HI = counterclockwise (transport limitation or distal source)
 
 
 
-*Beta* is the slope of the CQ relationship on the rising limb of the storm
-CIs on beta are bootstrapped 95% CI
+* *Beta* is the slope of the CQ relationship on the rising limb of the storm
+
+    CIs on beta are bootstrapped 95% CI
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=8) 
@@ -53,7 +59,7 @@ lakem_hysteresis <- readRDS(here("Data/lakem_hysteresis.rds"))
 
 hysteresis_df <- read.csv(here("Data/hysteresis_summary.csv")) # summearized, combined all sites, includes mean HI per analyte per storm, amongst other things
 hi_intervals_df <- read.csv(here("Data/hysteresis_intervals.csv")) # raw HI per interval per site per storm per analyte
-beta <- read.csv(here("Data/beta_all_sites.csv"))#beta per storm per analyte per site
+beta_df <- read.csv(here("Data/beta_all_sites.csv"))#beta per storm per analyte per site
 
 # from google drive - no API access needed 
 curry_cq <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download", 
@@ -78,7 +84,7 @@ lakem_cq[1,1] <- "2008-01-29 00:00:00"
 ```{r data munging, message=FALSE, warning=FALSE, include=FALSE}
 #some quick data munging - need to get storm_date into beta
 storm_date <- hysteresis_df %>% select(c(site, stormID, storm_date, analyte))
-beta <- left_join(beta, storm_date, by = c("site", "stormID", "analyte"))
+beta_df <- left_join(beta_df, storm_date, by = c("site", "stormID", "analyte"))
 ```
 
 
@@ -159,11 +165,12 @@ hysteresis_df %>%
 ## Plotting Beta
 ```{r plotting beta, echo=FALSE, warning=FALSE, message=FALSE}
 
-## curry
-beta %>% filter(!is.na(analyte)) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = site))+
+beta_df %>% filter(!is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = site))+
   geom_point()+
+  geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
+                width = 10, alpha = 0.4) +
   facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
-  labs(title = "Beta per storm per analyte per site", x = "Storm Date")
+  labs(title = "Beta per storm per analyte per site", x = "Storm Date", subtitle = "Bars are 95% confidence intervals")
 
 ```
 
