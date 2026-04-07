@@ -27,6 +27,9 @@ Aims to plot hysteresis per analyte per storm per site
 * *Beta* is the slope of the CQ relationship on the rising limb of the storm
 
     CIs on beta are bootstrapped 95% CI
+    
+
+*individual analyte outliers > 3sd above mean concentration per storm were removed for hysteresis and beta calculations, but remain for individual storm plotting at the bottom of the report*
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=8) 
@@ -215,7 +218,7 @@ plot_c_q_norm <- function(cq_data, analyte_col) {
     filter(!is.na(.data$mean_conc), !is.na(cfs)) 
   
   #Plot normalized cq relationship per storm
-  p <- curr_site %>% filter(!is.na(curr_site$Level_norm), !is.na(curr_site$Chem_norm)) %>% ggplot(aes(x = Level_norm, y = Chem_norm)) + 
+  p <- curr_site %>% filter(!is.na(curr_site$Level_norm), !is.na(curr_site$Chem_norm)) %>% ggplot(aes(x = Level_norm, y = Chem_norm, shape = outlier_analyte)) + 
     geom_point(aes(color = Time_norm)) + 
     facet_wrap(~stormID, scales = "free") + 
     scale_color_gradientn(colours = rainbow(7)) + 

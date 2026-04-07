@@ -59,6 +59,7 @@ chems_long <- chems_meta %>%
   group_by(Site, datetime, analyte, true_unit) %>%
   summarise(
     mean_conc = mean(analysis_concentration, na.rm = TRUE),
+    standard_dev = sd(analysis_concentration, na.rm = TRUE), 
     .groups = "drop"
   )
 
@@ -96,9 +97,28 @@ lakem_cq <- left_join(lakem_q, chems_long %>% filter(Site == "lakem", analyte !=
 lakem_cq$Site <- "Lake Marg"
 
 
-## TODO: remove outliers, concentration > 3*SD for the storm
-test <- curry_cq %>% group_by(stormID, analyte) %>% 
-  mutate(outlier = ifelse(mean_conc > 3*standard_dev, "yes", "no"))
+## remove outliers, concentration > 3*SD for the storm
+curry_cq <- curry_cq %>%
+  group_by(stormID, analyte) %>%
+  mutate(
+    storm_mean = mean(mean_conc, na.rm = TRUE),
+    storm_sd   = sd(mean_conc, na.rm = TRUE),
+    outlier_analyte = abs(mean_conc - storm_mean) > 3 * storm_sd
+  )
+silv_cq <- silv_cq  %>%
+  group_by(stormID, analyte) %>%
+  mutate(
+    storm_mean = mean(mean_conc, na.rm = TRUE),
+    storm_sd   = sd(mean_conc, na.rm = TRUE),
+    outlier_analyte = abs(mean_conc - storm_mean) > 3 * storm_sd
+  )
+lakem_cq <- lakem_cq  %>%
+  group_by(stormID, analyte) %>%
+  mutate(
+    storm_mean = mean(mean_conc, na.rm = TRUE),
+    storm_sd   = sd(mean_conc, na.rm = TRUE),
+    outlier_analyte = abs(mean_conc - storm_mean) > 3 * storm_sd
+  )
 
 ## export
 write.csv(curry_cq, here("Data/curry_cq.csv"))
