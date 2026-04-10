@@ -1,5 +1,5 @@
 ---
-title: "Hysteresis Indicies and Beta of IBW sites: Curry, Silverado, and Lake Margarita"
+title: "Hysteresis Indicies and Beta of IBW sites: Curry, Silverado, and Lake Marguerite"
 output:
   pdf_document: default
   html_document:
@@ -29,7 +29,14 @@ Aims to plot hysteresis per analyte per storm per site
     CIs on beta are bootstrapped 95% CI
     
 
-*individual analyte outliers > 3sd above mean concentration per storm were removed for hysteresis and beta calculations, but remain for individual storm plotting at the bottom of the report*
+**NOTES**
+
+
+* Lake Marguerite does not have a lot of chems to work with. Do we know if there are more chems than the 624_runoff_chems.csv from the dropbox?
+
+* Similarly, there is a gap of data in Silverado 2014-2018, was there less sampling in that time or is the data elsewhere?
+
+* individual analyte outliers > 3sd above mean concentration per storm were removed for hysteresis and beta calculations, but remain for individual storm plotting at the bottom of the report
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=8) 
@@ -104,20 +111,20 @@ hi_summary <- hysteresis_df %>%
     .groups = "drop"
   )
 hi_summary <- hi_summary %>% filter(!is.na(analyte))
-hysteresis_df %>% filter(!is.na(analyte)) %>%  ggplot() +
-  geom_jitter(aes(x = site, y = HI_mean),
-              width = 0.15, alpha = 0.3, size = 1.5) +
-  geom_pointrange(data = hi_summary,
-                  aes(x = site, y = median_HI, ymin = lower_CI, ymax = upper_CI),
-                  size = 0.8, linewidth = 1.2) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-  facet_wrap(~ analyte, scales = "free_y") +
-  labs(title = "Median HI by Analyte and Site",
-       subtitle = "Points = individual storms, range = IQR",
-       x = NULL, y = "HI") +
-  theme_bw() +
-  theme(legend.position = "none",
-        axis.text.x = element_text(angle = 45, hjust = 1))
+# hysteresis_df %>% filter(!is.na(analyte)) %>%  ggplot() +
+#   geom_jitter(aes(x = site, y = HI_mean),
+#               width = 0.15, alpha = 0.3, size = 1.5) +
+#   geom_pointrange(data = hi_summary,
+#                   aes(x = site, y = median_HI, ymin = lower_CI, ymax = upper_CI),
+#                   size = 0.8, linewidth = 1.2) +
+#   geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+#   facet_wrap(~ analyte, scales = "free_y") +
+#   labs(title = "Median HI by Analyte and Site",
+#        subtitle = "Points = individual storms, range = IQR",
+#        x = NULL, y = "HI") +
+#   theme_bw() +
+#   theme(legend.position = "none",
+#         axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 #per site
@@ -133,7 +140,9 @@ hysteresis_df %>%
   labs(title = "Curry - mean HI with confidence intervals per storm per analyte",
        x = "Storm Date", y = "Mean HI", size = "Peak Q") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15))
 
 hysteresis_df %>%
   filter(site == "Silverado", !is.na(analyte)) %>%
@@ -147,7 +156,9 @@ hysteresis_df %>%
   labs(title = "Silverado - mean HI with confidence intervals per storm per analyte",
        x = "Storm Date", y = "Mean HI", size = "Peak Q") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15))
 
 hysteresis_df %>%
   filter(site == "Lake Margarita", !is.na(analyte)) %>%
@@ -158,25 +169,90 @@ hysteresis_df %>%
   #geom_smooth(method = "loess", se = FALSE, color = "red", linewidth = 0.7) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   facet_wrap(~ analyte, scales = "free_y") +
-  labs(title = "Lake Margarita - mean HI with confidence intervals per storm per analyte",
+  labs(title = "Lake Marguerite - mean HI with confidence intervals per storm per analyte",
        x = "Storm Date", y = "Mean HI", size = "Peak Q") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15))
 
 ```
 
 ## Plotting Beta
+
+
 ```{r plotting beta, echo=FALSE, warning=FALSE, message=FALSE}
 
-beta_df %>% filter(!is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = site))+
+# beta_df %>% filter(!is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = site))+
+#   geom_point()+
+#   geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
+#                 width = 10, alpha = 0.4) +
+#   facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
+#   labs(title = "Beta per storm per analyte per site", x = "Storm Date", subtitle = "Bars are 95% confidence intervals")
+
+beta_df %>% filter(site == "Curry", !is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta))+
   geom_point()+
   geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
                 width = 10, alpha = 0.4) +
   facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
-  labs(title = "Beta per storm per analyte per site", x = "Storm Date", subtitle = "Bars are 95% confidence intervals")
+  labs(title = "Curry Beta per storm per analyte", x = "Storm Date", subtitle = "Bars are 95% confidence intervals")+
+  theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15))
+
+beta_df %>% filter(site == "Silverado", !is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta))+
+  geom_point()+
+  geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
+                width = 10, alpha = 0.4) +
+  facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
+  labs(title = "Silverado Beta per storm per analyte", x = "Storm Date", subtitle = "Bars are 95% confidence intervals")+
+  theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15))
+
+beta_df %>% filter(site == "Lake Margarita", !is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta))+
+  geom_point()+
+  geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
+                width = 10, alpha = 0.4) +
+  facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
+  labs(title = "Lake Marguerite Beta per storm per analyte", x = "Storm Date", subtitle = "Bars are 95% confidence intervals")+
+  theme(axis.text.x = element_text(size = 15, angle = 45, hjust = 1), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15))
 
 ```
 
+TODO: make HI vs. beta for Curry Rd for each analyte (w/ error bars in both directions)
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+
+curry_hi_beta <- hysteresis_df %>%
+  filter(site == "Curry") %>%
+  inner_join(
+    beta_df %>% filter(site == "Curry"),
+    by = c("stormID", "analyte", "site")
+  )
+
+# plot
+curry_hi_beta %>%
+  filter(!is.na(analyte), !outlier) %>%
+  ggplot(aes(x = beta, y = HI_mean)) +
+  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd),
+                alpha = 0.4, width = 0.05) +
+  geom_errorbar(aes(xmin = boot_ci_lo, xmax = boot_ci_hi),
+                alpha = 0.4, width = 0.05,
+                orientation = "y") +          # <-- replaces geom_errorbarh
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  facet_wrap(~ analyte, scales = "free") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Curry Rd - HI vs Beta by Analyte",
+       x = "Beta (bootstrap CI)",               # <-- removed +/- symbol
+       y = "Mean HI (SD)")                       # <-- removed +/- symbol
+```
 
 
 ## Plotting CQ
@@ -233,13 +309,13 @@ plot_c_q_norm <- function(cq_data, analyte_col) {
 
 
 # Loop through analytes per site to plot and save
-setwd(here("plots", "cq"))
+
 
 chem_names <- unique(curry_cq$analyte)
 for(analyte in chem_names){
   if(!is.na(analyte)){
    p <- plot_c_q_norm(curry_cq, analyte)
-   #ggsave(p, file=paste("Curry_", analyte, ".jpeg"), width = 20, height = 10, units = "in")
+   #ggsave(p, path = "plots/cq", file=paste("Curry_", analyte, ".jpeg"), width = 20, height = 10, units = "in")
    print(p)
   }
 }
