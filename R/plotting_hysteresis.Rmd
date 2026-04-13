@@ -222,7 +222,7 @@ beta_df %>% filter(site == "Lake Margarita", !is.na(analyte), analyte != "Pb", o
 
 ```
 
-TODO: make HI vs. beta for Curry Rd for each analyte (w/ error bars in both directions)
+
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
@@ -238,20 +238,21 @@ curry_hi_beta <- hysteresis_df %>%
 curry_hi_beta %>%
   filter(!is.na(analyte), !outlier) %>%
   ggplot(aes(x = beta, y = HI_mean)) +
-  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd),
+  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd, colour = "red"),
                 alpha = 0.4, width = 0.05) +
-  geom_errorbar(aes(xmin = boot_ci_lo, xmax = boot_ci_hi),
+  geom_errorbar(aes(xmin = boot_ci_lo, xmax = boot_ci_hi, colour = "blue"),
                 alpha = 0.4, width = 0.05,
                 orientation = "y") +          # <-- replaces geom_errorbarh
   geom_point(size = 2) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
-  facet_wrap(~ analyte, scales = "free") +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  labs(title = "Curry Rd - HI vs Beta by Analyte",
-       x = "Beta (bootstrap CI)",               # <-- removed +/- symbol
-       y = "Mean HI (SD)")                       # <-- removed +/- symbol
+  facet_wrap(~ analyte, scales = "fixed") +
+  theme_minimal() + theme(legend.position = "none", axis.text.x = element_text(size = 15), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15)) +
+  labs(title = "Curry - HI vs Beta by Analyte", subtitle = "Each dot is an individual storm",
+       x = "Beta",               # <-- removed +/- symbol
+       y = "HI")                       # <-- removed +/- symbol
 ```
 
 
