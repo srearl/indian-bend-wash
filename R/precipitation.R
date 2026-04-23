@@ -7,6 +7,7 @@
 ##    Outputs: 
 ##         
 
+rm(list=ls())
 library(tidyverse)
 library(here)
 library(googledrive)
@@ -15,36 +16,27 @@ library(lubridate)
 library(rio)
 
 
+hourly_cols <- c(
+  "year", "doy", "hour",
+  "air_temp", "rel_humidity", "vpd", "solar_rad", "precip",
+  "soil_temp_4in", "soil_temp_20in",
+  "wind_speed_avg", "wind_vec_mag", "wind_vec_dir", "wind_dir_sd", "wind_speed_max",
+  "eto",
+  "actual_vapor_pressure", "dewpoint"
+)
 
-sheet_url <- "https://docs.google.com/spreadsheets/d/1tZYh73C8ww8MvTLauS1M_seQ2R5_HkWRPSi3Tze2euM"
-sheet_names <- sheet_names(sheet_url)
+UCR_new <- drive_get(as_id("https://drive.google.com/drive/folders/1wP4iKeIlEfKU_tWOV8zc8Lau8cqAlNrq"))
+UCR_glist <- drive_ls(UCR_new, type = "txt")
 
-precip <- lapply(sheet_names, function(sheet) {
-  df <- read_sheet(
-    sheet_url, 
-    sheet = sheet, 
-    col_names = FALSE,   # don't treat first row as header
-    col_types = "c"      # read all as character
-  )
-  # keep only first two columns, rename them
-  df <- df[, 1:2]
-  names(df) <- c("date", "precip_mm")
-  df$year <- sheet
-  return(df)
-}) |> bind_rows()
+setwd(here("Data/precip"))
+walk(UCR_glist$id, ~ drive_download(as_id(.x), overwrite = TRUE))
 
-# clean up types and drop any NA rows
-precip <- precip |>
-  mutate(
-    date = as.Date(date, format = "%m/%d/%Y"),
-    precip_mm = as.numeric(precip_mm)
-  ) |>
-  filter(!is.na(date), !is.na(precip_mm))
+file_list <- list.files(recursive = FALSE, pattern = "\\.txt$", full.names = TRUE)
 
+ppt_raw <- map_dfr(
+  file_list,
+  ~ read.csv(.x, header = FALSE, col.names = hourly_cols)
+)
 
-precip %>% ggplot(aes(x = date, y = precip_mm))+
-  geom_col() +theme_bw() +labs( title = "Daily IBW Precipitation", subtitle = "Data from Maricopa County", 
-                                     y = "Precipitation (mm)", x = "Date")
-
-write.csv(precip, here("IBW_daily_precip.csv"))
+setwd(here())
 
