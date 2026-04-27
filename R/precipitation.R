@@ -98,22 +98,23 @@ ppt_storms <- ppt_storms %>% group_by(storm_id) %>% mutate(storm_size = sum(prec
                                                            storm_duration_hr = row_number(),
                                                            storm_intensity = storm_size / max(storm_duration_hr), 
                                                            Date = as.Date(doy, origin = "2002-12-31"), 
-                                                           datetime = as.POSIXct(
-                                                             paste(year, doy, hour),
-                                                             format = "%Y %j %H",
-                                                             tz = "UTC")
+                                                           datetime = as.POSIXct(paste(year, doy, hour),format = "%Y %j %H",tz = "UTC"), 
+                                                           season = ifelse((month(Date) >= 10 | month(Date) < 5),  "winter", "summer")
                                                            )
+# TODO: classify seasons per storm
+
 
 write.csv(ppt_storms, here("Data/precip", "ibw_precip.csv"))
 
+
 #### PLOTTING ####
 
-ppt_storms %>% ggplot(aes(x = datetime, y = precip))+
+ppt_storms %>% ggplot(aes(x = datetime, y = precip, color = season))+
   geom_col() +
   labs(title = "Hourly Precip") +
   facet_wrap(~year, scales = "free") + theme_classic()
 
-ppt_storms %>% ggplot(aes(x = Date, y = daily_tot))+
+ppt_storms %>% ggplot(aes(x = datetime, y = daily_tot, color = season))+
   geom_col() +
   labs(title = "Daily Precip", y = "precip (mm)") +
   facet_wrap(~year, scales = "free") + theme_classic()
