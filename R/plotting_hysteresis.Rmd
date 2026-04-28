@@ -433,36 +433,3 @@ HI_precip %>% filter(site == "Lake Margarita", , analyte != "NA") %>% ggplot(aes
 ```
 
 
-
-
-```{r storm intensity v HI, warning=FALSE, message=FALSE, echo=FALSE}
-
-HI_precip %>% filter(site == "Curry", analyte != "NA") %>% ggplot(aes(x = storm_intensity, y = HI_mean, color = season)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd), 
-                width = 0.05, color = "gray60", alpha = 0.05) +
-  facet_wrap(~analyte) + labs(title = "Curry HI mean vs storm intensity", 
-                              subtitle = "Error bars are 95% confidence intervals", x = "Storm Intensity") +
-  theme_bw()
-
-HI_precip %>% filter(site == "Silverado", , analyte != "NA") %>% ggplot(aes(x = storm_intensity, y = HI_mean, color = season)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd), 
-                width = 0.05, color = "gray60", alpha = 0.05) +
-  facet_wrap(~analyte) + labs(title = "Silverado HI mean vs storm intensity", 
-                               subtitle = "Error bars are 95% confidence intervals", x = "Storm Intensity") +
-  theme_bw()
-
-
-HI_precip %>% filter(site == "Lake Margarita", , analyte != "NA") %>% ggplot(aes(x = storm_intensity, y = HI_mean, color = season)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd), 
-                width = 0.05, color = "gray60", alpha = 0.05) +
-  facet_wrap(~analyte) + labs(title = "Lake Margarita HI mean vs storm intensity", 
-                               subtitle = "Error bars are 95% confidence intervals", x = "Storm Intensity") +
-  theme_bw()
-
-```
-
-
-
