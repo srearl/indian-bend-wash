@@ -56,12 +56,12 @@ ppt_all <- ppt_raw %>% select(c(year, doy, hour, precip)) %>%
 
 ppt_roll <- ppt_all %>%
   group_by(year) %>%
-  mutate(ppt_30day_cum = rollapply(daily_tot, width = 30, align = "right", FUN = sum, fill = NA, na.rm = TRUE),
-         ppt_30day_avg = rollapply(daily_tot, width = 30, align = "right", FUN = mean, fill = NA, na.rm = TRUE),
-         ppt_10day_cum = rollapply(daily_tot, width = 10, align = "right", FUN = sum, fill = NA, na.rm = TRUE),
-         ppt_10day_avg = rollapply(daily_tot, width = 10, align = "right", FUN = mean, fill = NA, na.rm = TRUE),
-         ppt_5day_cum = rollapply(daily_tot, width = 5, align = "right", FUN = sum, fill = NA, na.rm = TRUE),
-         ppt_5day_avg = rollapply(daily_tot, width = 5, align = "right", FUN = mean, fill = NA, na.rm = TRUE)) %>%
+  mutate(ppt_1month_cum = rollapply(daily_tot, width = 30, align = "right", FUN = sum, fill = NA, na.rm = TRUE),
+         ppt_1month_avg = rollapply(daily_tot, width = 30, align = "right", FUN = mean, fill = NA, na.rm = TRUE),
+         ppt_1week_cum = rollapply(daily_tot, width = 7, align = "right", FUN = sum, fill = NA, na.rm = TRUE),
+         ppt_1week_avg = rollapply(daily_tot, width = 7, align = "right", FUN = mean, fill = NA, na.rm = TRUE),
+         ppt_3month_cum = rollapply(daily_tot, width = 90, align = "right", FUN = sum, fill = NA, na.rm = TRUE),
+         ppt_3month_avg = rollapply(daily_tot, width = 90, align = "right", FUN = mean, fill = NA, na.rm = TRUE)) %>%
   ungroup()
 
 ## calculate storm size, storm intensity
@@ -101,9 +101,8 @@ ppt_storms <- ppt_storms %>% group_by(storm_id) %>% mutate(storm_size = sum(prec
                                                            datetime = as.POSIXct(paste(year, doy, hour),format = "%Y %j %H",tz = "UTC"), 
                                                            season = ifelse((month(Date) >= 10 | month(Date) < 5),  "winter", "summer")
                                                            )
-# TODO: classify seasons per storm
 
-
+# export
 write.csv(ppt_storms, here("Data/precip", "ibw_precip.csv"))
 
 
