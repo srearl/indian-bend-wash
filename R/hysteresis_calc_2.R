@@ -253,8 +253,8 @@ saveRDS(lakem_hysteresis, here("Data/lakem_hysteresis.rds"))
 write.csv(hysteresis_df,   here("Data/hysteresis_summary.csv"),   row.names = FALSE)
 write.csv(hi_intervals_df, here("Data/hysteresis_intervals.csv"), row.names = FALSE)
 
-#drive_put(here("Data/hysteresis_summary.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
-#drive_put(here("Data/hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+drive_put(here("Data/hysteresis_summary.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+drive_put(here("Data/hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 
 
 #### BETA ####
@@ -317,7 +317,16 @@ lakem_beta <- calculate_beta(lakem_cq, "Lake Margarita")
 
 beta_all <- bind_rows(curry_beta, silv_beta, lakem_beta)
 
+# After building both hysteresis_df and beta_all:
+
+hi_keys <- hysteresis_df %>%
+  distinct(site, stormID, analyte) %>%
+  mutate(stormID = as.character(stormID))
+
+beta_all <- beta_all %>%
+  mutate(stormID = as.character(stormID)) %>%
+  semi_join(hi_keys, by = c("site", "stormID", "analyte"))
 
 write.csv(beta_all, here("Data", "beta_all_sites.csv"), row.names = FALSE)
-#drive_put(here("Data/beta_all_sites.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+drive_put(here("Data/beta_all_sites.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 
