@@ -45,6 +45,37 @@ import warnings
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 ")
 
+
+#### PRE-FILTER DATA ####
+# Shared filter to ensure both HI and beta pipelines use the same storm/analyte combos
+prefilter_cq <- function(cq_data) {
+  cq_data %>%
+    filter(!is.na(analyte), !is.na(cfs), !is.na(mean_conc)) %>%
+    group_by(stormID, analyte) %>%
+    mutate(
+      Q_range = max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE),
+      C_range = max(mean_conc, na.rm = TRUE) - min(mean_conc, na.rm = TRUE)
+    ) %>%
+    filter(Q_range > 0, C_range > 0) %>%
+    select(-Q_range, -C_range) %>%
+    # rising limb finite log check
+    mutate(
+      Q.norm = (cfs - min(cfs, na.rm = TRUE)) / (max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE)),
+      C.norm = (mean_conc - min(mean_conc, na.rm = TRUE)) / (max(mean_conc, na.rm = TRUE) - min(mean_conc, na.rm = TRUE)),
+      limb   = ifelse(datetime < datetime[which.max(Q.norm)], "rising", "falling")
+    ) %>%
+    filter(
+      # keep only storm/analyte groups with >= 3 finite rising limb log points
+      sum(limb == "rising" & is.finite(log(Q.norm)) & is.finite(log(C.norm))) >= 3
+    ) %>%
+    select(-Q.norm, -C.norm, -limb) %>%
+    ungroup()
+}
+
+curry_cq  <- prefilter_cq(curry_cq)
+silv_cq   <- prefilter_cq(silv_cq)
+lakem_cq  <- prefilter_cq(lakem_cq)
+
 #### HYSTERESIS PER STORM ####
 
 # curry
@@ -72,7 +103,7 @@ curry_hysteresis <- curry_cq %>%
                       discharge_units = "CFS")
   }, .keep = TRUE)
 
-# Name results as "stormID_analyte" for easy lookup
+
 names(curry_hysteresis) <- curry_cq %>% 
   distinct(stormID, analyte) %>% 
   mutate(name = paste(stormID, analyte, sep = "_")) %>% 
@@ -194,7 +225,7 @@ extract_hysteresis_dfs <- function(hysteresis_list, cq_data, site_name) {
     }) %>%
     mutate(interval_pct = as.numeric(gsub("Interpolated HI for |% discharge", "", interval)))
   
-  storm_dates <- cq_data %>%
+  storm_dates <- cq_data %>%filter(!is.na(cfs), !is.na(mean_conc), !is.na(analyte)) %>%
     group_by(stormID) %>%
     summarise(storm_date = min(datetime, na.rm = TRUE)) %>%
     mutate(stormID = as.character(stormID))
@@ -222,24 +253,19 @@ saveRDS(lakem_hysteresis, here("Data/lakem_hysteresis.rds"))
 write.csv(hysteresis_df,   here("Data/hysteresis_summary.csv"),   row.names = FALSE)
 write.csv(hi_intervals_df, here("Data/hysteresis_intervals.csv"), row.names = FALSE)
 
-drive_put(here("Data/hysteresis_summary.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
-drive_put(here("Data/hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+#drive_put(here("Data/hysteresis_summary.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+#drive_put(here("Data/hysteresis_intervals.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 
 
 #### BETA ####
 # based on code from Jake C. Storms_clean_repo, 06_BETA.R
 calculate_beta <- function(cq_data, site_name) {
   
-  # normalize Q and concentration per storm
   normalized <- cq_data %>%
-    filter(!is.na(cfs), !is.na(mean_conc), !is.na(analyte)) %>%
     group_by(stormID, analyte) %>%
     mutate(
-      Q_range = max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE),
-      C_range = max(mean_conc, na.rm = TRUE) - min(mean_conc, na.rm = TRUE)
-    ) %>%
-    filter(Q_range > 0, C_range > 0) %>%
-    mutate(
+      Q_range    = max(cfs, na.rm = TRUE) - min(cfs, na.rm = TRUE),
+      C_range    = max(mean_conc, na.rm = TRUE) - min(mean_conc, na.rm = TRUE),
       Q.norm     = (cfs - min(cfs, na.rm = TRUE)) / Q_range,
       C.norm     = (mean_conc - min(mean_conc, na.rm = TRUE)) / C_range,
       Q.norm.log = log(Q.norm),
@@ -249,23 +275,17 @@ calculate_beta <- function(cq_data, site_name) {
     select(-Q_range, -C_range) %>%
     ungroup()
   
-  # keep only rising limb and finite values
   rising <- normalized %>%
     filter(limb == "rising",
            is.finite(Q.norm.log),
            is.finite(C.norm.log))
   
-  #bootstrap beta per storm per analyte
   beta_df <- rising %>%
     group_by(stormID, analyte) %>%
-    filter(n() >= 3) %>% #removes storms/analytes
     group_modify(~ {
-      
-      # point estimate from lm
-      mod <- lm(C.norm.log ~ Q.norm.log, data = .x)
+      mod      <- lm(C.norm.log ~ Q.norm.log, data = .x)
       beta_est <- coef(mod)[["Q.norm.log"]]
       
-      # bootstrap the slope by resampling data points within this storm
       boot_slope <- function(data, ind) {
         d <- data[ind, ]
         coef(lm(C.norm.log ~ Q.norm.log, data = d))[["Q.norm.log"]]
@@ -276,38 +296,19 @@ calculate_beta <- function(cq_data, site_name) {
       
       tibble(
         beta       = beta_est,
-        boot_ci_lo = ci$percent[4],  # lower 95%
-        boot_ci_hi = ci$percent[5]   # upper 95%
+        boot_ci_lo = ci$percent[4],
+        boot_ci_hi = ci$percent[5]
       )
     }) %>%
     ungroup() %>%
     mutate(
-      site      = site_name,
-      ci_width  = boot_ci_hi - boot_ci_lo,
-      outlier   = abs(beta) > 20 | ci_width > 10            # TRUE/FALSE flag for outliers
+      site     = site_name,
+      ci_width = boot_ci_hi - boot_ci_lo,
+      outlier  = abs(beta) > 20 | ci_width > 10
     )
   
-  # #bootstrapped median beta + CI across storms, per analyte - optional
-  # beta_boot_summary <- beta_df %>%
-  #   filter(!is.na(beta)) %>%
-  #   group_by(analyte) %>%
-  #   group_modify(~ {
-  #     if (nrow(.x) < 3) {
-  #       tibble(median_beta = NA, boot_ci_lo = NA, boot_ci_hi = NA)
-  #     } else {
-  #       median_cl_boot(.x$beta)
-  #     }
-  #   }) %>%
-  #   ungroup() %>%
-  #   mutate(site = site_name)
-  
-  # list(
-  #   per_storm = beta_df,
-  #   summary   = beta_boot_summary
-  # )
-  return(beta_df)#we don't need boot_summary, that just summarizes across storms per analyte, not per storm
+  return(beta_df)
 }
-
 
 curry_beta <- calculate_beta(curry_cq, "Curry")
 silv_beta  <- calculate_beta(silv_cq,  "Silverado")
@@ -318,5 +319,5 @@ beta_all <- bind_rows(curry_beta, silv_beta, lakem_beta)
 
 
 write.csv(beta_all, here("Data", "beta_all_sites.csv"), row.names = FALSE)
-drive_put(here("Data/beta_all_sites.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
+#drive_put(here("Data/beta_all_sites.csv"), path = as_id("1wG4zV1-Ekzt0qIsSpA-3BJsPpE7s86Vn")) 
 

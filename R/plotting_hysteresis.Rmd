@@ -57,7 +57,7 @@ Workflow before this rmd, in order:
 
 * q_storms.R: import discharge from Lake Margherite, Silverado, & Curry, delineate unique storms, and interpolate Q
 * merge_Q_chems.R: merge discharge data with chem data per site, produce brief cq plots per analyte per site
-* hysteresis_calc_2.R: calculate hysteresis based on python function, removed a lot of storms with not enough data
+* hysteresis_calc_2.R: calculate hysteresis based on python function, removed a lot of storms with not enough data. also calculates beta
 
 ```{r load data, include=FALSE}
 
@@ -245,13 +245,13 @@ curry_hi_beta <- hysteresis_df %>%
   filter(site == "Curry") %>%
   inner_join(
     beta_df %>% filter(site == "Curry"),
-    by = c("stormID", "analyte", "site")
+    by = c("stormID", "analyte", "site", "season", "storm_date")
   )
 
 # plot
 curry_hi_beta %>%
   filter(!is.na(analyte), !outlier) %>%
-  ggplot(aes(x = beta, y = HI_mean)) +
+  ggplot(aes(x = beta, y = HI_mean, color = season)) +
   geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd, colour = "red"),
                 alpha = 0.4, width = 0.05) +
   geom_errorbar(aes(xmin = boot_ci_lo, xmax = boot_ci_hi, colour = "blue"),
@@ -261,12 +261,12 @@ curry_hi_beta %>%
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
   facet_wrap(~ analyte, scales = "fixed") +
-  theme_minimal() + theme(legend.position = "none", axis.text.x = element_text(size = 15), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+  theme_minimal() + theme(axis.text.x = element_text(size = 15), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
         axis.title.x = element_text(size = 15), 
         axis.title.y = element_text(size = 15)) +
   labs(title = "Curry - HI vs Beta by Analyte", subtitle = "Each dot is an individual storm",
-       x = "Beta",               # <-- removed +/- symbol
-       y = "HI")                       # <-- removed +/- symbol
+       x = "Beta",              
+       y = "HI")+scale_color_manual(values = c("summer" ="red", "winter" = "blue")) 
 ```
 
 
