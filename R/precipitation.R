@@ -3,7 +3,7 @@
 ## Initialize Date: April 16 2026
 ## Purpose: To import and munge precip data for IBW
 ##    Inputs: 
-##          daily precip data from https://www.maricopa.gov/625/Rainfall-Data - 56000 Osborn and 64th ave station
+##          daily precip data from AZMet desert ridge station
 ##    Outputs: 
 ##         
 

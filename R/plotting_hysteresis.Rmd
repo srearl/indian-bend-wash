@@ -361,7 +361,7 @@ for(analyte in chem_names){
 ```{r precip upload, warning=FALSE, message=FALSE, echo=FALSE}
 
 precip <- read_csv(here("Data/precip", "ibw_precip.csv"))
-precip <- precip %>% mutate(storm_date = as.Date(datetime))
+precip <- precip %>% mutate(storm_date = as.Date(datetime), season) %>% select(-`...1`)
 
 hysteresis_df$storm_date <- as.Date(hysteresis_df$storm_date)
 
@@ -369,6 +369,34 @@ HI_precip <- left_join(hysteresis_df, precip, by = c("storm_date", "season"))
 
 
 ```
+
+
+Time series of precip
+
+```{r precip ts, warning=FALSE, message=FALSE, echo=FALSE}
+
+precip %>% filter(daily_tot > 0)%>% ggplot(aes(x = datetime, y = daily_tot, color = season)) +
+  geom_point() +theme_bw() +labs(title = "Daily Precip all")+
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15), 
+        plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15), 
+        legend.title = element_text(size = 15), 
+        legend.text = element_text(size = 10))
+
+precip %>% filter(daily_tot < 700, daily_tot > 0) %>% ggplot(aes(x = datetime, y = daily_tot, color = season)) +
+  geom_point() +theme_bw() +labs(title = "Daily Precip (excluding large outliers)")+
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15), 
+        plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15), 
+        legend.title = element_text(size = 15), 
+        legend.text = element_text(size = 10))
+
+```
+
 
 Storm size = cumulative precipitation (mm) per storm
 
