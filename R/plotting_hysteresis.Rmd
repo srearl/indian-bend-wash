@@ -38,6 +38,8 @@ Aims to plot hysteresis per analyte per storm per site
 
 * individual analyte outliers > 3sd above mean concentration per storm were removed for hysteresis and beta calculations, but remain for individual storm plotting at the bottom of the report
 
+* Precipitation data was collected from https://azmet.arizona.edu/azmet/27.htm - precipitation gage at the Desert Ridge station
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,fig.width=12, fig.height=8) 
 ```
@@ -357,6 +359,7 @@ for(analyte in chem_names){
 
 ## Precipitation
 
+Precipitation data was collected from https://azmet.arizona.edu/azmet/27.htm - precipitation gage at the Desert Ridge station
 
 ```{r precip upload, warning=FALSE, message=FALSE, echo=FALSE}
 
@@ -375,8 +378,9 @@ Time series of precip
 
 ```{r precip ts, warning=FALSE, message=FALSE, echo=FALSE}
 
-precip %>% filter(daily_tot > 0)%>% ggplot(aes(x = datetime, y = daily_tot, color = season)) +
-  geom_point() +theme_bw() +labs(title = "Daily Precip all")+
+precip %>% filter(daily_tot < 700, daily_tot > 0) %>% ggplot(aes(x = datetime, y = daily_tot)) +
+  geom_col(aes(color = season)) +
+  theme_bw() +labs(title = "Daily Precip (excluding large outliers)")+
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15), 
         plot.title = element_text(size = 20), 
@@ -385,8 +389,8 @@ precip %>% filter(daily_tot > 0)%>% ggplot(aes(x = datetime, y = daily_tot, colo
         legend.title = element_text(size = 15), 
         legend.text = element_text(size = 10))
 
-precip %>% filter(daily_tot < 700, daily_tot > 0) %>% ggplot(aes(x = datetime, y = daily_tot, color = season)) +
-  geom_point() +theme_bw() +labs(title = "Daily Precip (excluding large outliers)")+
+precip %>% filter(daily_tot > 0)%>% ggplot(aes(x = datetime, y = daily_tot)) +
+   geom_col(aes(color = season))+theme_bw() +labs(title = "Daily Precip all")+
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15), 
         plot.title = element_text(size = 20), 
@@ -394,6 +398,8 @@ precip %>% filter(daily_tot < 700, daily_tot > 0) %>% ggplot(aes(x = datetime, y
         axis.title.y = element_text(size = 15), 
         legend.title = element_text(size = 15), 
         legend.text = element_text(size = 10))
+
+
 
 ```
 
