@@ -32,7 +32,7 @@ q_all$datetime <- as.POSIXct(q_all$datetime , format = "%Y-%m-%d %H:%M:%S", tz =
 #drive_download("624_runoff_chemistry.csv", overwrite = TRUE)
 chems <- read_csv("Data/624_runoff_chemistry.csv")
 chem_meta <- read_csv("Data/624_analytes.csv")
-
+chem_meta <- chem_meta %>% rename(analysis_name = analysis)
 
 #### DATA MUNGING ####
 
@@ -49,7 +49,6 @@ chems <- rename(chems, Site = runoff_location)
 #toss the NO3 IC and Ca Varian
 chems <-chems %>%  filter(analysis_name != "CaD_FLAME_AA", 
                 analysis_name != "NO3D_IC")
-chem_meta <- rename(chem_meta, analysis_name=analysis)
 
 chems_meta <- left_join(chems, chem_meta, by ="analysis_name")
 

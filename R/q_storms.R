@@ -34,7 +34,7 @@ curry_Q <- readNWISuv(
   siteNumbers = "09512162",
   parameterCd = "00060",
   startDate = "2008-01-01",
-  endDate   = "2022-02-18"
+  endDate   = "2026-02-18"
 )
 
 curry_Q <- renameNWISColumns(curry_Q) 
@@ -83,7 +83,7 @@ silverado_Q <-rename(silverado_Q, silv_cfs=cfs)
 
 #datetime range according to chems : 2008-01-29 09:21:00 - 2022-02-23 13:33:00
 start_datetime <- as.POSIXct("2008-01-29 00:00:00", tz = "America/Phoenix")
-end_datetime <- as.POSIXct("2022-02-24 00:00:00", tz = "America/Phoenix")
+end_datetime <- as.POSIXct("2026-02-24 00:00:00", tz = "America/Phoenix")
 
 datetime_seq <- seq(from = start_datetime,
                     to   = end_datetime,
@@ -158,7 +158,7 @@ assign_storm <- function(df, threshold = 0, dry_steps = 24){
 curry_interp <- q_interp %>% select(datetime, curry_cfs) %>% rename(cfs = curry_cfs)
 curry_q_storm <- assign_storm(curry_interp)
 curry_q_storm <- rename(curry_q_storm, curry_cfs = cfs, curry_storm = storm_id,  curry_start = storm_start)
-curry_q_storm %>% ggplot(aes(x = datetime, y = cfs, color = as.factor(storm_id)))+
+curry_q_storm %>% ggplot(aes(x = datetime, y = curry_cfs, color = as.factor(curry_storm)))+
   geom_point() + labs(title= "Curry storms")
 
 
