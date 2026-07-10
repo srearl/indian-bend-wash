@@ -81,7 +81,7 @@ silverado_Q <-rename(silverado_Q, silv_cfs=cfs)
 
 ## Combine into one data frame, align by datetime
 
-#datetime range according to chems : 2008-01-29 09:21:00 - 2022-02-23 13:33:00
+#datetime range according to chems : 2008-01-29 09:21:00 - 2026-02-23 13:33:00
 start_datetime <- as.POSIXct("2008-01-29 00:00:00", tz = "America/Phoenix")
 end_datetime <- as.POSIXct("2026-02-24 00:00:00", tz = "America/Phoenix")
 
