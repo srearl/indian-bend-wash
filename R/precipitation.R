@@ -203,6 +203,7 @@ q_storms_precip_calc <- left_join(q_storms_precip_calc, lakem_calc, by = "lakem_
 
 # export
 write.csv(q_storms_precip_calc, here("Data", "q_storms_precip.csv"))
+drive_put(here("Data/q_storms_precip.csv"), path = as_id("1D5bHhP6_egHu-rkCTCGFI3E2auyxIbfS"))
 
 
 #### PLOTTING ####

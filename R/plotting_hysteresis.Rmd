@@ -58,6 +58,7 @@ library(purrr)
 Workflow before this rmd, in order:
 
 * q_storms.R: import discharge from Lake Margherite, Silverado, & Curry, delineate unique storms, and interpolate Q
+* precipitation.R: import precip data and merge with Q to calculate pre-storm precip metrics
 * merge_Q_chems.R: merge discharge data with chem data per site, produce brief cq plots per analyte per site
 * hysteresis_calc_2.R: calculate hysteresis based on python function, removed a lot of storms with not enough data. also calculates beta
 
@@ -466,4 +467,11 @@ HI_precip %>% filter(site == "Lake Margarita", , analyte != "NA") %>% ggplot(aes
 
 ```
 
+
+Cumulative precip before storm - a week, 1 month, and 3 months before storm
+TODO: plot against HI and beta and make scatterplot matricies
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+curry_cq %>% ggplot(aes(x = datetime, precip_7d_mm)) + geom_line() + geom_vline(aes(x = storm_start))
+```
 
