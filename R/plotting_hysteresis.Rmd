@@ -51,6 +51,7 @@ library(tidyverse)
 library(ggplot2)
 library(here)
 library(purrr)
+library(GGally)
 ```
 
 ## Data munging/cleaning
@@ -270,6 +271,60 @@ curry_hi_beta %>%
   labs(title = "Curry - HI vs Beta by Analyte", subtitle = "Each dot is an individual storm",
        x = "Beta",              
        y = "HI")+scale_color_manual(values = c("summer" ="red", "winter" = "blue")) 
+
+silv_hi_beta <- hysteresis_df %>%
+  filter(site == "Silverado") %>%
+  inner_join(
+    beta_df %>% filter(site == "Silverado"),
+    by = c("stormID", "analyte", "site", "season", "storm_date")
+  )
+
+# plot
+silv_hi_beta %>%
+  filter(!is.na(analyte), !outlier) %>%
+  ggplot(aes(x = beta, y = HI_mean, color = season)) +
+  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd, colour = "red"),
+                alpha = 0.4, width = 0.05) +
+  geom_errorbar(aes(xmin = boot_ci_lo, xmax = boot_ci_hi, colour = "blue"),
+                alpha = 0.4, width = 0.05,
+                orientation = "y") +          # <-- replaces geom_errorbarh
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  facet_wrap(~ analyte, scales = "fixed") +
+  theme_minimal() + theme(axis.text.x = element_text(size = 15), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15)) +
+  labs(title = "Silverado - HI vs Beta by Analyte", subtitle = "Each dot is an individual storm",
+       x = "Beta",              
+       y = "HI")+scale_color_manual(values = c("summer" ="red", "winter" = "blue")) 
+
+lakem_hi_beta <- hysteresis_df %>%
+  filter(site == "Lake Margarita") %>%
+  inner_join(
+    beta_df %>% filter(site == "Lake Margarita"),
+    by = c("stormID", "analyte", "site", "season", "storm_date")
+  )
+
+# plot
+lakem_hi_beta %>%
+  filter(!is.na(analyte), !outlier) %>%
+  ggplot(aes(x = beta, y = HI_mean, color = season)) +
+  geom_errorbar(aes(ymin = HI_mean - HI_sd, ymax = HI_mean + HI_sd, colour = "red"),
+                alpha = 0.4, width = 0.05) +
+  geom_errorbar(aes(xmin = boot_ci_lo, xmax = boot_ci_hi, colour = "blue"),
+                alpha = 0.4, width = 0.05,
+                orientation = "y") +          # <-- replaces geom_errorbarh
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  facet_wrap(~ analyte, scales = "fixed") +
+  theme_minimal() + theme(axis.text.x = element_text(size = 15), strip.text.x = element_text(size = 15), axis.text.y = element_text(size = 15), plot.title = element_text(size = 20), 
+        axis.title.x = element_text(size = 15), 
+        axis.title.y = element_text(size = 15)) +
+  labs(title = "Lake Margarita - HI vs Beta by Analyte", subtitle = "Each dot is an individual storm",
+       x = "Beta",              
+       y = "HI")+scale_color_manual(values = c("summer" ="red", "winter" = "blue")) 
 ```
 
 
@@ -404,6 +459,42 @@ precip %>% filter(daily_tot > 0)%>% ggplot(aes(x = datetime, y = daily_tot)) +
 
 ```
 
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#need precip metrics from _cq df
+
+curry_hi_beta_precip <- unique(curry_hi_beta %>% left_join(curry_cq %>% select(c(stormID, precip_7d_mm, precip_30d_mm, precip_90d_mm)), by ="stormID"))
+silv_hi_beta_precip <- unique(silv_hi_beta %>% left_join(silv_cq %>% select(c(stormID, precip_7d_mm, precip_30d_mm, precip_90d_mm)), by ="stormID"))
+lakem_hi_beta_precip <- unique(lakem_hi_beta %>% left_join(lakem_cq %>% select(c(stormID, precip_7d_mm, precip_30d_mm, precip_90d_mm)), by ="stormID"))
+
+hydro_precip_vars <- curry_hi_beta_precip %>%
+  select(HI_mean, HI_sd, normalized_slope, max_width, peak_Q, beta,
+         precip_7d_mm, precip_30d_mm, precip_90d_mm)
+
+ggpairs(hydro_precip_vars,
+        upper = list(continuous = wrap("cor", size = 3)),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 1)),
+        diag  = list(continuous = wrap("densityDiag")), title = "Curry Scatterplot matricies")
+
+# storm level pairs
+storm_level <- curry_hi_beta_precip %>%
+     distinct(site, stormID, .keep_all = TRUE) %>%
+     select(HI_mean, HI_sd, normalized_slope, max_width, peak_Q, beta,
+            precip_7d_mm, precip_30d_mm, precip_90d_mm)
+
+ggpairs(storm_level, title = "Curry Scatterplot matricies on storm level")
+
+# color by season
+ggpairs(curry_hi_beta_precip %>%
+             select(HI_mean, beta, normalized_slope, max_width, peak_Q,
+                    precip_7d_mm, precip_30d_mm, precip_90d_mm, season),
+           aes(color = season, alpha = 0.6), title = "Curry Scatterplot matricies - colored by season")
+
+# loop by analyte
+
+```
+
+
+
 
 Storm size = cumulative precipitation (mm) per storm
 
@@ -472,6 +563,24 @@ Cumulative precip before storm - a week, 1 month, and 3 months before storm
 TODO: plot against HI and beta and make scatterplot matricies
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
-curry_cq %>% ggplot(aes(x = datetime, precip_7d_mm)) + geom_line() + geom_vline(aes(x = storm_start))
+# Collapse to one row per storm (site + stormID), since HI and storm-level
+# metrics are constant within a storm
+storm_summary <- HI_precip %>%
+  group_by(site, stormID) %>%
+  summarise(
+    HI_mean            = first(HI_mean),
+    HI_sd              = first(HI_sd),
+    normalized_slope   = first(normalized_slope),
+    max_width          = first(max_width),
+    peak_Q             = first(peak_Q),
+    storm_size         = first(storm_size),
+    storm_duration_hr  = first(storm_duration_hr),
+    storm_intensity    = first(storm_intensity),
+    ppt_1week_cum      = max(ppt_1week_cum, na.rm = TRUE),
+    ppt_1month_cum     = max(ppt_1month_cum, na.rm = TRUE),
+    ppt_3month_cum     = max(ppt_3month_cum, na.rm = TRUE),
+    .groups = "drop"
+  )
+
 ```
 

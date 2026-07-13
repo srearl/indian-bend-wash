@@ -78,15 +78,15 @@ chems_wide <- chems_meta %>%
 #### MERGE CHEMS AND Q ####
 # do by site to make it easier
 q_all$Time <- as.POSIXct(format(q_all$datetime,"2000-01-01 %H:%M:%S"))
-curry_q <- q_all %>% select(c(datetime, Time, curry_cfs, curry_start, curry_storm, curry_precip_7d_mm, curry_precip_30d_mm, curry_precip_90d_mm)) 
-names(curry_q) <- c("datetime", "Time", "cfs", "storm_start", "stormID", "precip_7d_mm", "precip_30d_mm", "precip_90d_mm")
+curry_q <- q_all %>% select(c(datetime, Time, precip_mm, curry_cfs, curry_start, curry_storm, curry_precip_7d_mm, curry_precip_30d_mm, curry_precip_90d_mm)) 
+names(curry_q) <- c("datetime", "Time", "precip_mm", "cfs", "storm_start", "stormID", "precip_7d_mm", "precip_30d_mm", "precip_90d_mm")
 curry_q$Time <- as_hms(curry_q$Time)
 
-silv_q <- q_all %>% select(c(datetime, Time,silv_cfs, silv_start, silv_storm, silv_precip_7d_mm, silv_precip_30d_mm, silv_precip_90d_mm))
-names(silv_q) <-   c("datetime", "Time", "cfs", "storm_start", "stormID", "precip_7d_mm", "precip_30d_mm", "precip_90d_mm")
+silv_q <- q_all %>% select(c(datetime, Time,precip_mm, silv_cfs, silv_start, silv_storm, silv_precip_7d_mm, silv_precip_30d_mm, silv_precip_90d_mm))
+names(silv_q) <-   c("datetime", "Time", "precip_mm", "cfs", "storm_start", "stormID", "precip_7d_mm", "precip_30d_mm", "precip_90d_mm")
 
-lakem_q <- q_all %>% select(c(datetime, Time,lakem_cfs, lakem_start, lakem_storm, lakem_precip_7d_mm, lakem_precip_30d_mm, lakem_precip_90d_mm)) 
-names(lakem_q) <-   c("datetime", "Time", "cfs", "storm_start", "stormID", "precip_7d_mm", "precip_30d_mm", "precip_90d_mm")
+lakem_q <- q_all %>% select(c(datetime, Time,precip_mm, lakem_cfs, lakem_start, lakem_storm, lakem_precip_7d_mm, lakem_precip_30d_mm, lakem_precip_90d_mm)) 
+names(lakem_q) <-   c("datetime", "Time", "precip_mm", "cfs", "storm_start", "stormID", "precip_7d_mm", "precip_30d_mm", "precip_90d_mm")
 
 curry_cq <- left_join(curry_q, chems_long %>% filter(Site == "curry"), by = "datetime")
 curry_cq$Site <- "Curry"
