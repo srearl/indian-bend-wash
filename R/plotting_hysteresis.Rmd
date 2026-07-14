@@ -204,6 +204,7 @@ hysteresis_df %>%
 
 beta_df %>% filter(site == "Curry", !is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = season))+
   geom_point()+
+  geom_hline(yintercept = 0)+
   geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
                 width = 10, alpha = 0.4) +
   facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
@@ -216,6 +217,7 @@ beta_df %>% filter(site == "Curry", !is.na(analyte), analyte != "Pb", outlier==F
 
 beta_df %>% filter(site == "Silverado", !is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = season))+
   geom_point()+
+  geom_hline(yintercept = 0)+
   geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
                 width = 10, alpha = 0.4) +
   facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
@@ -228,6 +230,7 @@ beta_df %>% filter(site == "Silverado", !is.na(analyte), analyte != "Pb", outlie
 
 beta_df %>% filter(site == "Lake Margarita", !is.na(analyte), analyte != "Pb", outlier==F) %>% ggplot(aes(x = as.Date(storm_date), y = beta, color = season))+
   geom_point()+
+  geom_hline(yintercept = 0)+
   geom_errorbar(aes(ymin = boot_ci_lo, ymax = boot_ci_hi),
                 width = 10, alpha = 0.4) +
   facet_wrap(~analyte, scales = "free_y") + theme_minimal() +
@@ -459,6 +462,13 @@ precip %>% filter(daily_tot > 0)%>% ggplot(aes(x = datetime, y = daily_tot)) +
 
 ```
 
+
+## Scatterplot matricies
+
+A few different options
+
+
+
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 #need precip metrics from _cq df
 
@@ -489,12 +499,57 @@ ggpairs(curry_hi_beta_precip %>%
                     precip_7d_mm, precip_30d_mm, precip_90d_mm, season),
            aes(color = season, alpha = 0.6), title = "Curry Scatterplot matricies - colored by season")
 
-# loop by analyte
+hydro_precip_vars <- silv_hi_beta_precip %>%
+  select(HI_mean, HI_sd, normalized_slope, max_width, peak_Q, beta,
+         precip_7d_mm, precip_30d_mm, precip_90d_mm)
+
+ggpairs(hydro_precip_vars,
+        upper = list(continuous = wrap("cor", size = 3)),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 1)),
+        diag  = list(continuous = wrap("densityDiag")), title = "Silverado Scatterplot matricies")
+
+# storm level pairs
+storm_level <- silv_hi_beta_precip %>%
+     distinct(site, stormID, .keep_all = TRUE) %>%
+     select(HI_mean, HI_sd, normalized_slope, max_width, peak_Q, beta,
+            precip_7d_mm, precip_30d_mm, precip_90d_mm)
+
+ggpairs(storm_level, title = "Silverado Scatterplot matricies on storm level")
+
+# color by season
+ggpairs(silv_hi_beta_precip %>%
+             select(HI_mean, beta, normalized_slope, max_width, peak_Q,
+                    precip_7d_mm, precip_30d_mm, precip_90d_mm, season),
+           aes(color = season, alpha = 0.6), title = "Silverado Scatterplot matricies - colored by season")
+
+
+hydro_precip_vars <- lakem_hi_beta_precip %>%
+  select(HI_mean, HI_sd, normalized_slope, max_width, peak_Q, beta,
+         precip_7d_mm, precip_30d_mm, precip_90d_mm)
+
+ggpairs(hydro_precip_vars,
+        upper = list(continuous = wrap("cor", size = 3)),
+        lower = list(continuous = wrap("points", alpha = 0.5, size = 1)),
+        diag  = list(continuous = wrap("densityDiag")), title = "Lake Margarite Scatterplot matricies")
+
+# storm level pairs
+storm_level <- lakem_hi_beta_precip %>%
+     distinct(site, stormID, .keep_all = TRUE) %>%
+     select(HI_mean, HI_sd, normalized_slope, max_width, peak_Q, beta,
+            precip_7d_mm, precip_30d_mm, precip_90d_mm)
+
+ggpairs(storm_level, title = "Lake Margarite Scatterplot matricies on storm level")
+
+# color by season
+ggpairs(lakem_hi_beta_precip %>%
+             select(HI_mean, beta, normalized_slope, max_width, peak_Q,
+                    precip_7d_mm, precip_30d_mm, precip_90d_mm, season),
+           aes(color = season, alpha = 0.6), title = "Lake Margarite Scatterplot matricies - colored by season")
 
 ```
 
 
-
+\newpage 
 
 Storm size = cumulative precipitation (mm) per storm
 
@@ -526,6 +581,7 @@ HI_precip %>% filter(site == "Lake Margarita", , analyte != "NA") %>% ggplot(aes
   theme_bw()
 ```
 
+\newpage 
 
 Storm intensity = cumulative precipitation/storm duration
 
@@ -559,8 +615,7 @@ HI_precip %>% filter(site == "Lake Margarita", , analyte != "NA") %>% ggplot(aes
 ```
 
 
-Cumulative precip before storm - a week, 1 month, and 3 months before storm
-TODO: plot against HI and beta and make scatterplot matricies
+
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 # Collapse to one row per storm (site + stormID), since HI and storm-level
