@@ -8,20 +8,20 @@
 ##    Outputs: 
 ##         
 
-rm(list=ls())
-library(tidyverse)
-library(here)
-library(googledrive)
-library(googlesheets4)
-library(lubridate)
-library(rio)
-library(zoo)
-library(xts)
-library(imputeTS)
-library(slider)
-
-
-## Uncomment lines below to download raw data for the first time
+# rm(list=ls())
+# library(tidyverse)
+# library(here)
+# library(googledrive)
+# library(googlesheets4)
+# library(lubridate)
+# library(rio)
+# library(zoo)
+# library(xts)
+# library(imputeTS)
+# library(slider)
+# 
+# 
+# # Uncomment lines below to download raw data for the first time
 # hourly_cols <- c(
 #   "year", "doy", "hour",
 #   "air_temp", "rel_humidity", "vpd", "solar_rad", "precip",
